@@ -4,24 +4,19 @@ import path from 'path';
 const Path = path;
 import fs from 'fs';
 
-// TODO! remove this and just allow all .jsx files to passed by CLI using globbing (*.jsx)
-// that way folders can do
-//   bray my/path/*.jsx my/path/pdf/*.jsx
-//   bray my/path/*.jsx my/path/html/*.jsx
-// to allow different sets of primitives to output different types of document formats, but still share most of the document code/content
 // https://stackoverflow.com/a/47492545
-const isDirectory = path => fs.statSync(path).isDirectory();
-const getDirectories = path =>
-  fs.readdirSync(path).map(name => Path.join(path, name)).filter(isDirectory);
-const isFile = path => fs.statSync(path).isFile();  
-const getFiles = path =>
-  fs.readdirSync(path).map(name => Path.join(path, name)).filter(isFile);
-const getFilesRecursively = (path) => {
-  let dirs = getDirectories(path);
-  let files = dirs.map(dir => getFilesRecursively(dir)) // go through each directory
-                  .reduce((a,b) => a.concat(b), []);    // map returns a 2d array (array of file arrays) so flatten
-  return files.concat(getFiles(path));
-};
+// const isDirectory = path => fs.statSync(path).isDirectory();
+// const getDirectories = path =>
+//   fs.readdirSync(path).map(name => Path.join(path, name)).filter(isDirectory);
+// const isFile = path => fs.statSync(path).isFile();  
+// const getFiles = path =>
+//   fs.readdirSync(path).map(name => Path.join(path, name)).filter(isFile);
+// const getFilesRecursively = (path) => {
+//   let dirs = getDirectories(path);
+//   let files = dirs.map(dir => getFilesRecursively(dir)) // go through each directory
+//                   .reduce((a,b) => a.concat(b), []);    // map returns a 2d array (array of file arrays) so flatten
+//   return files.concat(getFiles(path));
+// };
 
 function prepender(name, contents) {
   const lines = contents.split('\n');
@@ -72,7 +67,8 @@ const todoArgsFromCommandLine = { /*TODO*/ };
 console.log(Main(todoArgsFromCommandLine).render());
 `;
 
-function testMain(paths) {
+function testMain(options) {
+  let paths = options.paths || [];
   let ret = [];
   ret.push(prelude);
   paths.forEach(path => {
@@ -89,21 +85,28 @@ function testMain(paths) {
 
 function main(options) {
   if (options) {
-    //serverMain(options);
+    serverMain(options);
   }
+  options = {};
   if (process.argv.length <= 2) {
     //console.log(getUsage(sections));
     console.log("USAGE: todo");
     return;
   }
-  const folder = process.argv.slice(2)[0];
-  console.warn(folder);
+  const paths = process.argv.slice(2);
+  console.warn(paths);
 
   //options = commandLineArgs(optionDefinitions);
-  //serverMain(sections, options);
-  // TODOx
-
-  testMain(getFilesRecursively(folder).filter(x => x.toLowerCase().endsWith('.jsx')));
+  // TODO get command line arguments and pass these options
+  options.paths = paths.filter(x => x.toLowerCase().endsWith('.jsx'));
+  testMain(options);
 }
+
+// allow all .jsx files to passed by CLI using globbing (*.jsx)
+// that way folders can do
+//   bray my/path/*.jsx my/path/pdf/*.jsx
+//   bray my/path/*.jsx my/path/html/*.jsx
+// to allow different sets of primitives to output different
+// types of document formats, but still share most of the document code/content
 
 main();
