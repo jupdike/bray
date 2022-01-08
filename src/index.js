@@ -1,5 +1,4 @@
-import { fromString } from 'jsx-transform';
-
+import { transformSync } from "@babel/core";
 import path from 'path';
 const Path = path;
 import fs from 'fs';
@@ -23,8 +22,7 @@ function prepender(name, contents) {
   let noCode = true;
   for(let i = 0; i < lines.length; i++) {
     const line = lines[i];
-
-    console.log('LINE:', line);
+    //console.log('LINE:', line);
     if (line.trim().startsWith('<')) {
       break;
     }
@@ -67,15 +65,32 @@ const todoArgsFromCommandLine = { /*TODO*/ };
 console.log(Main(todoArgsFromCommandLine).render());
 `;
 
+let jsxSettings = `/** @jsx BrayElem.create */
+/** @jsxFrag BrayElem.Fragment */
+`;
+
+function transformCode(origCode) {
+  let result = transformSync(jsxSettings + origCode,
+    { plugins: ['@babel/plugin-transform-react-jsx'] });
+  let ret = result.code;
+  ret = ret.replace('/** @jsx BrayElem.create */', '');
+  ret = ret.replace('/** @jsxFrag BrayElem.Fragment */', '');
+  ret = ret.trim();
+  while (ret.startsWith('\n')) {
+    ret = ret.slice(1);
+  }
+  return ret;
+}
+
 function testMain(options) {
   let paths = options.paths || [];
   let ret = [];
   ret.push(prelude);
   paths.forEach(path => {
     const origCode = fs.readFileSync(path, { encoding: 'utf-8' });
-    let contents = fromString(origCode, { passUnknownTagsToFactory: true, factory: 'BrayElem.create'});
+    let transformedCode = transformCode(origCode);
     // if first non-whitespace characters are not <xyz>, then prepend a small bit of boilerplate code on our behalf
-    let final = prepender(makeComponentNameFromPath(path), origCode) + contents + ';\n';
+    let final = prepender(makeComponentNameFromPath(path), origCode) + transformedCode + ';\n';
     ret.push(final);
   });
   // TODO change outro based on arguments for writing to disk, or passing to further BrayElem processing function, or whatever...
@@ -94,7 +109,7 @@ function main(options) {
     return;
   }
   const paths = process.argv.slice(2);
-  console.warn(paths);
+  //console.warn(paths);
 
   //options = commandLineArgs(optionDefinitions);
   // TODO get command line arguments and pass these options
