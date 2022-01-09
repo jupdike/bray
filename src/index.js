@@ -3,6 +3,10 @@ import path from 'path';
 const Path = path;
 import fs from 'fs';
 
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url).replace('file://', '');
+const __dirname = Path.dirname(__filename);
+
 // https://stackoverflow.com/a/47492545
 // const isDirectory = path => fs.statSync(path).isDirectory();
 // const getDirectories = path =>
@@ -52,17 +56,14 @@ function makeComponentNameFromPath(path) {
   return ret.join('');
 }
 
-const prelude = `
-const BrayElem = {
-  create: function(tag, attributes, children) {
-    // TODO
-  }
-};
-`;
+const prelude = fs.readFileSync(Path.join(__dirname, 'BrayElem.js'), { encoding: 'utf-8' });
+//console.warn(prelude);
 
+// last expression is 'returned' as result of eval()
 const outro = `
 const todoArgsFromCommandLine = { /*TODO*/ };
-console.log(Main(todoArgsFromCommandLine).render());
+//console.log(Main(todoArgsFromCommandLine).renderToString());
+Main(todoArgsFromCommandLine).renderToString();
 `;
 
 let jsxSettings = `/** @jsx BrayElem.create */
@@ -90,12 +91,14 @@ function testMain(options) {
     const origCode = fs.readFileSync(path, { encoding: 'utf-8' });
     let transformedCode = transformCode(origCode);
     // if first non-whitespace characters are not <xyz>, then prepend a small bit of boilerplate code on our behalf
-    let final = prepender(makeComponentNameFromPath(path), origCode) + transformedCode + ';\n';
+    let final = prepender(makeComponentNameFromPath(path), origCode) + transformedCode + '\n';
     ret.push(final);
   });
   // TODO change outro based on arguments for writing to disk, or passing to further BrayElem processing function, or whatever...
   ret.push(outro);
-  console.log(ret.join('\n'));
+  let code = ret.join('\n');
+  let str = eval(code);
+  console.log(str);
 }
 
 function main(options) {
