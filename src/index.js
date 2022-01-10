@@ -7,6 +7,61 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url).replace('file://', '');
 const __dirname = Path.dirname(__filename);
 
+import commandLineArgs from 'command-line-args';
+import getUsage from 'command-line-usage';
+
+const optionDefinitions = [
+  // { name: 'help', alias: 'h', type: Boolean, description: "print this usage help and exit" },
+  { name: 'src', alias: 's', type: String, multiple: true, defaultOption: true, typeLabel: 'file.jsx ...',
+    description: "(default if no flag specified) the input .jsx files to process" },
+  // { name: 'args', alias: 'a', multiple:true, type: String, typeLabel: '[underline]{k:v} ...',
+  //   description: "one or more k:v pairs passed to the template, where @k takes the value v, e.g.  tsvg --args k:v  results in k: 'v'  passed to template" },
+  // { name: 'quiet', alias: 'q', type: Boolean,
+  //   description: "produce no .svg ouput; generated .js code does not call  console.log(TSVG.Templates[<mine>]().render());  as is the default, for generating .svg files" },
+  // { name: 'output', alias: 'o', type: String, typeLabel: '[underline]{to/file.js}',
+  //   description: "combine all .js code from all .tsvg src files into a single .js file, instead of generating .svg file(s); turns on --quiet as well" },
+
+  //NOPE
+  // { name: 'node', alias: 'n', type: Boolean,
+  //   description: "output Node.js-compatible args-parsing code, when used with --output. The resulting .js file can be used as a commandline script which can be passed args, e.g.\n$ node stem.js k0:v0 k1:v1" },
+  // { name: 'global', alias: 'g', type: String,
+  //   description: "define the global object to attach templates code to; for example  --global window generates code   window['TSVG'] = TSVG;  this turns on --quiet as well" },
+  // { name: 'dev', alias: 'd', type: Boolean,
+  //   description: "a special flag for development, to force TypeScript files to be recompiled each time tsvg binary runs" },
+  //{ name: 'jshelper', alias: 'j', type: String } // a helper file (.js or .ts) that gets prepended
+];
+
+const sections = [
+  {
+    header: 'Bray',
+    content: 'Turing-complete static document processing framework that can output many flavors of XML, using JSX and JavaScript'
+  },
+  {
+    header: 'Examples',
+    content: [
+      {
+        desc: '$ bray input.jsx',
+        example: '1. Transform input.jsx to JS code, call render, and dump XML to stdout.'
+      },
+      {
+        desc: '$ bray example/simple/*.jsx -a width:100',
+        example: '2. Transform all .jsx files and run Main(\\{width: 100\\}).render().'
+      },
+      {
+        desc: '$ bray *.tsvg -o tsvg-all.js -g window',
+        example: '3. TODOx'
+      },
+    ]
+  },
+  {
+    header: 'Options',
+    optionList: optionDefinitions
+  },
+  {
+    content: 'Project home: {underline https://github.com/jupdike/bray}'
+  }
+];
+
 // https://stackoverflow.com/a/47492545
 // const isDirectory = path => fs.statSync(path).isDirectory();
 // const getDirectories = path =>
@@ -84,7 +139,7 @@ function transformCode(origCode) {
 }
 
 function testMain(options) {
-  let paths = options.paths || [];
+  let paths = options.src || [];
   let ret = [];
   ret.push(prelude);
   paths.forEach(path => {
@@ -103,21 +158,30 @@ function testMain(options) {
 }
 
 function main(options) {
-  if (options) {
-    serverMain(options);
+  if (!options) {
+    if (process.argv.length < 3) {
+      const usage = getUsage(sections);
+      console.error(usage);
+      console.error('Error: expected one or more source files.');
+      process.exit(1);
+    }
+    options = commandLineArgs(optionDefinitions);
+    if (options.output || options.global) {
+      options.quiet = true;
+    }
+    if (options.help) {
+      const usage = getUsage(sections);
+      console.error(usage);
+      process.exit(1);
+    }
+    console.error('FOUND THESE OPTIONS:', options);
   }
-  options = {};
-  if (process.argv.length <= 2) {
-    //console.log(getUsage(sections));
-    console.log("USAGE: todo");
-    return;
-  }
-  const paths = process.argv.slice(2);
+  //const paths = process.argv.slice(2);
   //console.warn(paths);
 
   //options = commandLineArgs(optionDefinitions);
   // TODO get command line arguments and pass these options
-  options.paths = paths.filter(x => x.toLowerCase().endsWith('.jsx'));
+  //options.paths = paths.filter(x => x.toLowerCase().endsWith('.jsx'));
   testMain(options);
 }
 
