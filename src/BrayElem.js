@@ -64,6 +64,10 @@ class BrayElem {
     //console.log('sBI:', indentBox.indent);
     builder.push(item);
   }
+  static escapedString(x) {
+    // TODO escape quotes and backslashes
+    return x;
+  }
   // Don't call this directly from outside renderToString, please
   // cf. https://stackoverflow.com/questions/22156326/private-properties-in-javascript-es6-classes
   _renderToStringInner(indentBox, builder) {
@@ -76,7 +80,7 @@ class BrayElem {
         continue;
       }
       let rhs = this.props[k] + ''; // make this a string
-      attrBuilder.push(` ${k}="${escaped(rhs)}"`);
+      attrBuilder.push(` ${k}="${BrayElem.escapedString(rhs)}"`);
     }
     let attrString = attrBuilder.join('');
     if (this.props.children.length < 1) {
