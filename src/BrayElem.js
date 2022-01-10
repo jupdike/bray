@@ -46,18 +46,21 @@ class BrayElem {
     let ret = builder.join('');
     return ret;
   }
-  _smartBuilderPush(builder, indentBox, item) {
-    if (item.startsWith('</') || item.endsWith('/>')) {
+  static _smartBuilderPush(builder, indentBox, item) {
+    //console.log('sBI:', indentBox.indent, '|||'+item+'|||');
+    if (item.startsWith('</')) {
       indentBox.indent--;
     }
-    //console.log('sBI:', indentBox.indent, item);
+    //console.log('sBI:', indentBox.indent);
     let lastClosed = builder.length > 0 && builder[builder.length - 1].endsWith(">");
     if (lastClosed && item.startsWith('<')) {
+      //console.log('sBI -- newline and indent');
       builder.push('\n');
       for (let i = 0; i < indentBox.indent; i++) {
         builder.push('  ');
       }
     }
+    //console.log('sBI:', indentBox.indent);
     if (item.startsWith('<') && !item.startsWith('</') && !item.endsWith('/>')) {
       indentBox.indent++;
     }
@@ -84,23 +87,23 @@ class BrayElem {
     }
     let attrString = attrBuilder.join('');
     if (this.props.children.length < 1) {
-      this._smartBuilderPush(builder, indentBox, `<${this.type}${attrString}/>\n`);
+      BrayElem._smartBuilderPush(builder, indentBox, `<${this.type}${attrString}/>`);
     }
     else {
       if (this.type === BrayElem.Fragment) {
         this._renderChildrenToString(builder, indentBox, this.props.children);
       }
       else {
-        this._smartBuilderPush(builder, indentBox, `<${this.type}${attrString}>`);
+        BrayElem._smartBuilderPush(builder, indentBox, `<${this.type}${attrString}>`);
         this._renderChildrenToString(builder, indentBox, this.props.children);
-        this._smartBuilderPush(builder, indentBox, `</${this.type}>`);
+        BrayElem._smartBuilderPush(builder, indentBox, `</${this.type}>`);
       }
     }
   }
   _renderChildrenToString(builder, indentBox, children) {
     children.forEach(kid => {
       if (BrayElem.isString(kid)) {
-        this._smartBuilderPush(builder, indentBox, kid);
+        BrayElem._smartBuilderPush(builder, indentBox, kid);
       }
       // an array is from fragments?
       else if (BrayElem.isArray(kid)) {

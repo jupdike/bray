@@ -97,6 +97,7 @@ function testMain(options) {
   // TODO change outro based on arguments for writing to disk, or passing to further BrayElem processing function, or whatever...
   ret.push(outro);
   let code = ret.join('\n');
+  //console.warn(code);
   let str = eval(code);
   console.log(str);
 }
