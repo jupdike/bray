@@ -7,6 +7,35 @@ class BrayElem {
   static create(type, props, ...children) {
     return new BrayElem(type, props, ...children);
   }
+  static mergeObjects(old, nu) {
+    let ret = {};
+    for (var k in old) {
+      if (!old.hasOwnProperty(k)) {
+        continue;
+      }
+      ret[k] = old[k];
+    }
+    for (var k in nu) {
+      if (!nu.hasOwnProperty(k)) {
+        continue;
+      }
+      ret[k] = nu[k];
+    }
+    // console.warn('---');
+    // console.warn(old);
+    // console.warn(ret);
+    return ret;
+  }
+  duplicateWithField(fieldKey, value) {
+    let nu = {};
+    nu[fieldKey] = value;
+    let props = BrayElem.mergeObjects(this.props, nu); // includes children
+    let ret = BrayElem.create(this.type, props, ...props.children);
+    // console.warn('-=-=-');
+    // console.warn(this);
+    // console.warn(ret);
+    return ret;
+  }
   static isString(x) {
     return typeof x === "string" || x instanceof String;
   }
