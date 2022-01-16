@@ -8,6 +8,7 @@ Bray is a simple, Turing-complete, JavaScript-based static document generation f
 
 * https://facebook.github.io/jsx/
 * https://reactjs.org/docs/introducing-jsx.html
+* https://reactjs.org/docs/jsx-in-depth.html
 
 Bray is built on JSX, which means you can paste in HTML and SVG (or any clean subset of XML tags plus text strings) and get back the same XML (or HTML and SVG). But you can also extend these (or your own domain-specific document XML language) in a programmatic manner to do anything you want in code. It is just declarative code and content mixed together.
 
