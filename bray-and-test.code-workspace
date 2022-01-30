@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../gospels"
+		},
+		{
+			"path": "../auspex"
 		}
 	],
 	"settings": {}

@@ -1,4 +1,4 @@
-class BrayElem {
+export default class BrayElem {
   constructor(type, props, ...children) {
     this.type = type;
     this.props = props || {};
@@ -142,5 +142,11 @@ class BrayElem {
         kid._reduceHead()._renderToStringInner(indentBox, builder);
       }
     });
+  }
+
+  // TODO
+  static fromXmlString(xmlString) {
+    // TODO parse xmlString and create a giant tree of BrayElems!
+    return null;
   }
 }
