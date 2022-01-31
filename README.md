@@ -14,6 +14,6 @@ Bray is built on JSX, which means you can paste in HTML and SVG (or any clean su
 
 ## Why does Bray exist?
 
-Bray itself knows nothing about the output XML tags (SVG, HTML, Auspex), and in fact, does not need to! Bray just knows that these atomic or built-in tags start with a lowercase letter, and that your components are just uppercase functions from properties to a BrayElem (document tree). There may be libraries that work with Bray to accomplish certain domain-specific goals (AUspex for PDF, or SVG-to-PDF), but that is just a matter of which later components get used and which code gets called. No magic!
+Bray itself knows nothing about the output XML tags (SVG, HTML, Auspex), and in fact, does not need to! Bray just knows that these atomic or built-in tags start with a lowercase letter, and that your components are just uppercase functions from properties to a BrayElem (document tree). There may be libraries that work with Bray to accomplish certain domain-specific goals (Auspex for PDF, or SVG-to-PDF), but that is just a matter of which later components get used and which code gets called. No magic!
 
 Bray just collects the bits up, and automates the boilerplate parts. Because it does not know anything about your domain, it can be employed across very different projects, depending on your needs. And since Bray just uses JSX, syntax highlighting already works in your editor of choice with existing JSX plugins.
