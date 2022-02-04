@@ -1,3 +1,64 @@
+class XmlHandler {
+  constructor(sax, tagMap) {
+    const strict = true;
+    this.saxParser = sax.parser(strict);
+    this.saxParser.onerror = this.onerror;
+    this.saxParser.ontext = this.ontext;
+    this.saxParser.onopentag = this.onopentag;
+    this.saxParser.onclosetag = this.onclosetag;
+    this.saxParser.parseStack = [];
+    this.saxParser.root = null;
+    //this.options = options;
+    this.saxParser.tagMap = tagMap;
+  }
+  onerror(e) {
+    throw e;
+  }
+  ontext(text) {
+    if (!this.parseStack) {
+      console.warn('Warning: Skipping text before any tags:', text);
+      return;
+    }
+    if (this.parseStack.length === 0) {
+      console.warn('Warning: Skipping text after last tag:', text);
+      return;
+    }
+    //console.warn('TEXT:', text);
+    const last = this.parseStack[this.parseStack.length - 1];
+    last.props.children.push(text);
+  }
+  onopentag(node) {
+    //console.warn('OPEN:', node.name, node.attributes);
+    //console.warn('THIS: ---\n', this);
+    let type = node.name;
+    if (this.tagMap) {
+      if (this.tagMap.hasOwnProperty(type)) {
+        type = this.tagMap[type];
+      }
+    }
+    this.parseStack.push(BrayElem.create(type, node.attr || null));
+  }
+  onclosetag(name) {
+    //console.warn(this.parseStack.length, 'CLOSE:', name);
+    let item = this.parseStack.pop();
+    // this will not work if we are mapping tag strings to function components
+    // if (name !== item.type) {
+    //   console.warn('Mismatched tag: "'+name+'". Expected "'+item.type+'"');
+    // }
+    if (this.parseStack.length === 0) {
+      this.root = item;
+    } else {
+      const last = this.parseStack[this.parseStack.length - 1];
+      last.props.children.push(item);
+    }
+    //console.warn(this.parseStack.length, 'ITEM:', item);
+  }
+  parseXmlString(xmlString) {
+    this.saxParser.write(xmlString).close();
+    return this.saxParser.root;
+  }
+}
+
 export default class BrayElem {
   constructor(type, props, ...children) {
     this.type = type;
@@ -143,10 +204,23 @@ export default class BrayElem {
       }
     });
   }
-
-  // TODO
-  static fromXmlString(xmlString) {
-    // TODO parse xmlString and create a giant tree of BrayElems!
-    return null;
+  // 'sax' here is the sax-js namespace (sax.parser will be created for us by XmlHandler)
+  // retrieved 4 Feb 2022 -- last change 5aee216 on Jun 22, 2017
+  // https://github.com/isaacs/sax-js
+  // https://raw.githubusercontent.com/isaacs/sax-js/master/lib/sax.js
+  // https://github.com/isaacs/sax-js/blob/master/lib/sax.js
+  //
+  // 'xmlString' is the XML document as a single string (one XML element, sans DOCTYPE, sans ?xml)
+  //
+  // 'tagMap' is an optional object with keys (strings) mapping tag names to either strings or
+  // function components. Tag name strings with no matching key in 'tagMap' will be left as is.
+  // Function components here mean functions that take a single argument, props (with props.children),
+  // and return a BrayElem. The result of these optional function components (BrayElem(s)) can then be
+  // rendered back to an XML string via BrayElem.renderToString()
+  static fromXmlString(sax, xmlString, tagMap) {
+    tagMap = tagMap || {};
+    const handler = new XmlHandler(sax, tagMap);
+    // parse xmlString and create a giant tree of BrayElems
+    return handler.parseXmlString(xmlString);
   }
 }

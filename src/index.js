@@ -111,8 +111,9 @@ function makeComponentNameFromPath(path) {
   return ret.join('');
 }
 
-const prelude = fs.readFileSync(Path.join(__dirname, 'BrayElem.js'), { encoding: 'utf-8' });
+let prelude = fs.readFileSync(Path.join(__dirname, 'BrayElem.js'), { encoding: 'utf-8' });
 //console.warn(prelude);
+prelude = prelude.replace('export default class BrayElem', 'class BrayElem');
 
 // last expression is 'returned' as result of eval()
 const outro = `
