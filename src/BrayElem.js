@@ -210,7 +210,7 @@ export default class BrayElem {
   // https://raw.githubusercontent.com/isaacs/sax-js/master/lib/sax.js
   // https://github.com/isaacs/sax-js/blob/master/lib/sax.js
   //
-  // 'xmlString' is the XML document as a single string (one XML element, sans DOCTYPE, sans ?xml)
+  // 'xmlString' is the XML document as a single string (one XML element (with children), sans DOCTYPE, sans ?xml)
   //
   // 'tagMap' is an optional object with keys (strings) mapping tag names to either strings or
   // function components. Tag name strings with no matching key in 'tagMap' will be left as is.
