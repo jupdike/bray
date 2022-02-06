@@ -28,15 +28,17 @@ class XmlHandler {
     last.props.children.push(text);
   }
   onopentag(node) {
-    //console.warn('OPEN:', node.name, node.attributes);
-    //console.warn('THIS: ---\n', this);
     let type = node.name;
+    const oldTagName = type;
     if (this.tagMap) {
       if (this.tagMap.hasOwnProperty(type)) {
         type = this.tagMap[type];
       }
     }
-    this.parseStack.push(BrayElem.create(type, node.attr || null));
+    let attrs = node.attributes || {};
+    attrs._oldTagName = oldTagName;
+    let newNode = BrayElem.create(type, attrs);
+    this.parseStack.push(newNode);
   }
   onclosetag(name) {
     //console.warn(this.parseStack.length, 'CLOSE:', name);
@@ -103,6 +105,19 @@ export default class BrayElem {
   static isArray(x) {
     return Array.isArray(x);
   }
+  static isObject(objValue) {
+    return objValue && typeof objValue === 'object' && objValue.constructor === Object;
+  }
+  static WhitespaceRegex = new RegExp("^[ \n]+$", "g");
+  static isWhiteSpaceString(x) {
+    if (!BrayElem.isString(x)) {
+      return false;
+    }
+    if (x.match(BrayElem.WhitespaceRegex)) {
+      return true;
+    }
+    return false;
+  }
   static get Fragment() {
     return "__BRAY_ELEM_FRAGMENT";
   }
@@ -123,6 +138,13 @@ export default class BrayElem {
     }
     //console.log('_reduceHead ret:', ret);
     return ret;
+  }
+  invokeSelf() {
+    if (BrayElem.isString(this.type)) {
+      return this;
+    }
+    // invoke the component (assumes it is a function if it is not a string)
+    return this.type(this.props);
   }
   renderToString() {
     let builder = [];
@@ -160,6 +182,31 @@ export default class BrayElem {
   static escapedString(x) {
     // TODO escape quotes and backslashes
     return x;
+  }
+  static childrenWithoutWhitespaceStrings(children) {
+    const ret = children.filter(x => !BrayElem.isWhiteSpaceString(x));
+    let builder = [];
+    ret.forEach(kid => {
+      if (BrayElem.isString(kid)) {
+        builder.push(kid);
+        return;
+      }
+      kid = kid._reduceHead();
+      if (!BrayElem.isString(kid.type)) { // node with component for type
+        builder.push(kid);
+        return;
+      }
+      if (kid.type === BrayElem.Fragment) { // node with fragment string for type
+        let innerKids = BrayElem.childrenWithoutWhitespaceStrings(kid.props.children);
+        innerKids.forEach(x => {
+          builder.push(x);
+        });
+        return;
+      }
+      // node with string for type
+      builder.push(kid);
+    });
+    return builder;
   }
   // Don't call this directly from outside renderToString, please
   // cf. https://stackoverflow.com/questions/22156326/private-properties-in-javascript-es6-classes
@@ -222,5 +269,41 @@ export default class BrayElem {
     const handler = new XmlHandler(sax, tagMap);
     // parse xmlString and create a giant tree of BrayElems
     return handler.parseXmlString(xmlString);
+  }
+  // fetch a value:
+  // 1. search props
+  // 2. search props.style if already an object
+  // 3. search props.style if it is a string
+  // 4. return default
+  static propOrStyleOrDefault(props, key, defaultValue) {
+    props = props || {};
+    if (props.hasOwnProperty(key)) {
+      return props[key];
+    }
+    if (props.hasOwnProperty('style')) {
+      if (BrayElem.isObject(props.style)) {
+        if (props.style.hasOwnProperty(key)) {
+          return props.style[key];
+        }
+      }
+    }
+    if (props.hasOwnProperty('style')) {
+      const ps = props.style.split(';');
+      for (let i = 0; i < ps.length; ps++) {
+        const piece = ps[i];
+        if (piece.indexOf(':') >= 1) {
+          const kv = piece.split(':');
+          const k = kv[0].trim();
+          if (key === k) {
+            const v = kv[1].trim();
+            return v;
+          }
+        }
+      }
+      if (props.style.hasOwnProperty(key)) {
+        return props.style[key];
+      }
+    }
+    return defaultValue;
   }
 }

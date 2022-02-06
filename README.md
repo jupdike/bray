@@ -1,4 +1,4 @@
-# bray
+# Bray
 
 **Bray** is a programmable static document processing framework that can output XML, XHTML, HTML, SVG, and PDF (via [Auspex](https://github.com/jupdike/auspex)). (Named in honor of one of the authors of the XML spec, Timothy Bray.)
 
