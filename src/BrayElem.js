@@ -70,19 +70,25 @@ export default class BrayElem {
   static create(type, props, ...children) {
     return new BrayElem(type, props, ...children);
   }
+  // merge all k:v pairs in old and nu into brand new object (nu supersedes old)
+  // either can be null or undefined
   static mergeObjects(old, nu) {
     let ret = {};
-    for (var k in old) {
-      if (!old.hasOwnProperty(k)) {
-        continue;
+    if (old) {
+      for (var k in old) {
+        if (!old.hasOwnProperty(k)) {
+          continue;
+        }
+        ret[k] = old[k];
       }
-      ret[k] = old[k];
     }
-    for (var k in nu) {
-      if (!nu.hasOwnProperty(k)) {
-        continue;
+    if (nu) {
+      for (var k in nu) {
+        if (!nu.hasOwnProperty(k)) {
+          continue;
+        }
+        ret[k] = nu[k];
       }
-      ret[k] = nu[k];
     }
     // console.warn('---');
     // console.warn(old);
@@ -125,11 +131,11 @@ export default class BrayElem {
     return 10000;
   }
   // Components are computed lazily, so reduce them to get to a final "atomic" (string) type
-  _reduceHead() {
+  _reduceHead(moreProps) {
     let ret = this;
     let count = 0;
     while (!BrayElem.isString(ret.type)) {
-      ret = ret.type(ret.props);
+      ret = ret.type(BrayElem.mergeObjects(ret.props, moreProps));
       // detect inadvertent infinite loops
       count++;
       if (count > BrayElem.MAX_COMPONENT_DEPTH) {
@@ -139,12 +145,20 @@ export default class BrayElem {
     //console.log('_reduceHead ret:', ret);
     return ret;
   }
-  invokeSelf() {
+  static pushFront(oldArray, item) {
+    let arr = oldArray;
+    if (!arr) {
+      arr = [];
+    }
+    return [item].concat(arr);
+  }
+  invokeSelf(moreProps) {
     if (BrayElem.isString(this.type)) {
       return this;
     }
+    let props = BrayElem.mergeObjects(this.props, moreProps);
     // invoke the component (assumes it is a function if it is not a string)
-    return this.type(this.props);
+    return this.type(props);
   }
   renderToString() {
     let builder = [];
@@ -183,7 +197,7 @@ export default class BrayElem {
     // TODO escape quotes and backslashes
     return x;
   }
-  static childrenWithoutWhitespaceStrings(children) {
+  static childrenWithoutWhitespaceStrings(children, extraProps) {
     const ret = children.filter(x => !BrayElem.isWhiteSpaceString(x));
     let builder = [];
     ret.forEach(kid => {
@@ -191,13 +205,13 @@ export default class BrayElem {
         builder.push(kid);
         return;
       }
-      kid = kid._reduceHead();
+      kid = kid._reduceHead(extraProps);
       if (!BrayElem.isString(kid.type)) { // node with component for type
         builder.push(kid);
         return;
       }
       if (kid.type === BrayElem.Fragment) { // node with fragment string for type
-        let innerKids = BrayElem.childrenWithoutWhitespaceStrings(kid.props.children);
+        let innerKids = BrayElem.childrenWithoutWhitespaceStrings(kid.props.children, extraProps);
         innerKids.forEach(x => {
           builder.push(x);
         });
@@ -271,31 +285,44 @@ export default class BrayElem {
     return handler.parseXmlString(xmlString);
   }
   // fetch a value:
-  // 1. search props
-  // 2. search props.style if already an object
-  // 3. search props.style if it is a string
-  // 4. return default
+  // 0. if props is actually an array, iterate through and try to find the first matching key (1, 2, 3)
+  // 1. search props as an object
+  // 2. search props.style if style is already an object
+  // 3. search props.style if it is a string like this: "k1: v1; k2: v2"
+  // 4. return default (which can be null, so these can be chained)
   static propOrStyleOrDefault(props, key, defaultValue) {
     props = props || {};
     if (props.hasOwnProperty(key)) {
       return props[key];
     }
-    if (props.hasOwnProperty('style')) {
-      if (BrayElem.isObject(props.style)) {
-        if (props.style.hasOwnProperty(key)) {
-          return props.style[key];
+    if (BrayElem.isArray(props)) {
+      let ret = null;
+      for (let i = 0; i < props.length; i++) {
+        const innerProps = props[i];
+        const v = BrayElem.propOrStyleOrDefault(innerProps, key, null);
+        if (v) {
+          return v;
         }
       }
+      return defaultValue;
     }
-    if (props.hasOwnProperty('style')) {
+    if (props.hasOwnProperty('style') && BrayElem.isObject(props.style)) {
+      if (props.style.hasOwnProperty(key)) {
+        return props.style[key];
+      }
+    }
+    if (props.hasOwnProperty('style') && BrayElem.isString(props.style)) {
       const ps = props.style.split(';');
-      for (let i = 0; i < ps.length; ps++) {
+      for (let i = 0; i < ps.length; i++) {
         const piece = ps[i];
         if (piece.indexOf(':') >= 1) {
           const kv = piece.split(':');
           const k = kv[0].trim();
           if (key === k) {
             const v = kv[1].trim();
+            if (v === 'null' || v === 'none') {
+              return null;
+            }
             return v;
           }
         }
