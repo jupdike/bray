@@ -128,7 +128,8 @@ let jsxSettings = `/** @jsx BrayElem.create */
 
 function transformCode(origCode) {
   let result = transformSync(jsxSettings + origCode,
-    { plugins: ['@babel/plugin-transform-react-jsx'] });
+    { cwd: __dirname,
+      plugins: ['@babel/plugin-transform-react-jsx'] });
   let ret = result.code;
   ret = ret.replace('/** @jsx BrayElem.create */', '');
   ret = ret.replace('/** @jsxFrag BrayElem.Fragment */', '');
