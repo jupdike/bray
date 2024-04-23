@@ -149,8 +149,6 @@ const noteRegex = /(\[\^\]\(([^\ ]+)[ ]?(\"([^"]+)\")\))/g;
 function testMain(options) {
   let paths = options.src || [];
   let ret = [];
-  let footNotesMap = {};
-  let footNotesArr = [];
   ret.push(prelude);
   paths.forEach(path => {
     let origCode = null;
@@ -165,14 +163,7 @@ function testMain(options) {
         const fullMatch = match[0];
         const src = match[2];
         const text = match[4];
-        let note = footNotesMap[fullMatch];
-        if(!note) {
-          note = {src, text, index: footNotesArr.length+1};
-          footNotesMap[fullMatch] = note;
-          footNotesArr.push(note);
-          //console.log(note);
-        }
-        mdCode = mdCode.replace(fullMatch, `<FootNote index="${note.index}" src="${note.src}">${note.text}</FootNote>`);
+        mdCode = mdCode.replace(fullMatch, `<FootNote index="auto" src="${src}">${text}</FootNote>`);
       }
       let parsed = mdReader.parse(mdCode);
 

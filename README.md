@@ -24,12 +24,16 @@ Bray just collects the bits up, and automates the boilerplate parts. Because it 
 
 Bray supports files with the `.jsx.md` extension. [CommonMark.js](https://github.com/commonmark/commonmark.js) parses the Markdown (with smart-quotes == true by default) and converts it to HTML. Any component tags (capitalized) get passed through as-is (e.g. `<MyComponent>Wrapped text</MyComponent>`), so they must be defined in other files, as `my-component.jsx`, etc. or an error will be thrown. Then the HTML + your component tags are treated as any Bray `.jsx` file would be, and processed by Babelscript to make JavaScript that is then executed when you reference your `.jsx.md` components from `main.jsx` or down the line, then the XML tree is rendered, then you get it back out with the components expanded out.
 
-### Easy to see and type Page Breaks
+### Easy-to-see and easy-to-type Page Breaks
 
 Another feature is page breaks: empty lines with six hyphens are not interpreted as horizontal rule (thematic break) but as `<PageBreak/>` which you must define as a component somewhere yourself.
 
 ### Special inline auto-numbering footnotes
 
-TODO (hence caret instead of manual numbers): `[^](https://example.com/ "Text of note")` which will turn into `<FootNote href="xyz">Text of note</FootNote>`. You can then collect up your footnotes as desired (and auto-number them, for example), and then make your own `<FootNotes/>` so your list of notes can be spit out automatically ... ? TODO
+`[^](https://example.com/ "Text of note")` will turn into `<FootNote index="auto" src="https://example.com/">Text of note</FootNote>`, a component which you must define. You can then collect up your footnotes as desired (and auto-number them (which must be done at render to time for the numbers to come out in the right order), and de-duplicate notes (to use the same index number for the same note), for example), and then make your own `<FootNotes/>` component, so your list of notes can be spit out automatically at the end of your document, exactly where you want your long list of footnotes to live.
 
-This combination of these small extensions, plus Bray's Turing-complete approach, plus Markdown's intuitiveness (and lack of indentation) makes for a really robust, powerful, and easy-to-use document generation system.
+### Improved custom hyphenation
+
+Include one or more files ending in `hyphens.txt` in your input source files to manually add soft hyphens to specific words throughout your document. For example, each line of the text file would be a single word, with asterisks where you want soft hyphens: `Hy*phen*ate`. This is especially helpful for foreign words or proper nouns that are not hyphenated to your liking, downstream. Check [Merriam-Webster](https://www.merriam-webster.com/dictionary/hyphenate) if you are unsure how to hyphenate a given word.
+
+This combination of small extensions, plus Bray's Turing-complete approach, plus Markdown's intuitiveness (and lack of indentation) makes for a really robust, powerful, and easy-to-use document generation system, which can scale up to an entire book. And the main part of your document is mostly just written in a semantic, domain-specific authoring language.
