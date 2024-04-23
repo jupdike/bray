@@ -144,9 +144,13 @@ function transformCode(origCode) {
   return ret;
 }
 
+const noteRegex = /(\[\^\]\(([^\ ]+)[ ]?(\"([^"]+)\")\))/g;
+
 function testMain(options) {
   let paths = options.src || [];
   let ret = [];
+  let footNotesMap = {};
+  let footNotesArr = [];
   ret.push(prelude);
   paths.forEach(path => {
     let origCode = null;
@@ -156,6 +160,20 @@ function testMain(options) {
       let mdCode = fs.readFileSync(path, { encoding: 'utf-8' });
       mdCode = mdCode.replace(/\n------\n/g, '\n<PageBreak/>\n');
       mdCode = mdCode.replace(/^------\n/g, '<PageBreak/>\n');
+      let matches = mdCode.matchAll(noteRegex);
+      for (const match of matches) {
+        const fullMatch = match[0];
+        const src = match[2];
+        const text = match[4];
+        let note = footNotesMap[fullMatch];
+        if(!note) {
+          note = {src, text, index: footNotesArr.length+1};
+          footNotesMap[fullMatch] = note;
+          footNotesArr.push(note);
+          //console.log(note);
+        }
+        mdCode = mdCode.replace(fullMatch, `<FootNote index="${note.index}" src="${note.src}">${note.text}</FootNote>`);
+      }
       let parsed = mdReader.parse(mdCode);
 
       // useful code to inspect or modify the nodes of them HTML tree before it is rendered
