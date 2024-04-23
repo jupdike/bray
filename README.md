@@ -17,3 +17,19 @@ Bray is built on JSX, which means you can paste in HTML and SVG (or any clean su
 Bray itself knows nothing about the output XML tags (SVG, HTML, [Auspex](https://github.com/jupdike/auspex)), and in fact, does not need to! Bray just knows that these atomic or built-in tags start with a lowercase letter, and that your components are just uppercase functions from properties to a BrayElem (document tree). There may be libraries that work with Bray to accomplish certain domain-specific goals ([Auspex](https://github.com/jupdike/auspex) for PDF, or SVG-to-PDF), but that is just a matter of which later components get used and which code gets called. No magic!
 
 Bray just collects the bits up, and automates the boilerplate parts. Because it does not know anything about your domain, it can be employed across very different projects, depending on your needs. And since Bray just uses JSX, syntax highlighting already works in your editor of choice with existing JSX plugins.
+
+## Other features of Bray
+
+### Markdown
+
+Bray supports files with the `.jsx.md` extension. [CommonMark.js](https://github.com/commonmark/commonmark.js) parses the Markdown (with smart-quotes == true by default) and converts it to HTML. Any component tags (capitalized) get passed through as-is (e.g. `<MyComponent>Wrapped text</MyComponent>`), so they must be defined in other files, as `my-component.jsx`, etc. or an error will be thrown. Then the HTML + your component tags are treated as any Bray `.jsx` file would be, and processed by Babelscript to make JavaScript that is then executed when you reference your `.jsx.md` components from `main.jsx` or down the line, then the XML tree is rendered, then you get it back out with the components expanded out.
+
+### Easy to see and type Page Breaks
+
+Another feature is page breaks: empty lines with six hyphens are not interpreted as horizontal rule (thematic break) but as `<PageBreak/>` which you must define as a component somewhere yourself.
+
+### Special inline auto-numbering footnotes
+
+TODO (hence caret instead of manual numbers): `[^](https://example.com/ "Text of note")` which will turn into `<FootNote href="xyz">Text of note</FootNote>`. You can then collect up your footnotes as desired (and auto-number them, for example), and then make your own `<FootNotes/>` so your list of notes can be spit out automatically ... ? TODO
+
+This combination of these small extensions, plus Bray's Turing-complete approach, plus Markdown's intuitiveness (and lack of indentation) makes for a really robust, powerful, and easy-to-use document generation system.

@@ -10,6 +10,10 @@ const __dirname = Path.dirname(__filename);
 import commandLineArgs from 'command-line-args';
 import getUsage from 'command-line-usage';
 
+import { Parser, HtmlRenderer } from 'commonmark';
+let mdReader = new Parser({smart: true});
+let mdHtmlWriter = new HtmlRenderer();
+
 const optionDefinitions = [
   // { name: 'help', alias: 'h', type: Boolean, description: "print this usage help and exit" },
   { name: 'src', alias: 's', type: String, multiple: true, defaultOption: true, typeLabel: 'file.jsx ...',
@@ -145,11 +149,41 @@ function testMain(options) {
   let ret = [];
   ret.push(prelude);
   paths.forEach(path => {
-    const origCode = fs.readFileSync(path, { encoding: 'utf-8' });
-    let transformedCode = transformCode(origCode);
-    // if first non-whitespace characters are not <xyz>, then prepend a small bit of boilerplate code on our behalf
-    let final = prepender(makeComponentNameFromPath(path), origCode) + transformedCode + '\n';
-    ret.push(final);
+    let origCode = null;
+    let plower = path.toLowerCase();
+    let path2 = path;
+    if(plower.endsWith('.jsx.md')) {
+      let mdCode = fs.readFileSync(path, { encoding: 'utf-8' });
+      mdCode = mdCode.replace(/\n------\n/g, '\n<PageBreak/>\n');
+      mdCode = mdCode.replace(/^------\n/g, '<PageBreak/>\n');
+      let parsed = mdReader.parse(mdCode);
+
+      // useful code to inspect or modify the nodes of them HTML tree before it is rendered
+      // let walker = parsed.walker();
+      // let event, node;
+      // while ((event = walker.next())) {
+      //   node = event.node;
+      //   console.log('TYPE:', node.type, '-->', node);
+      //   // if (event.entering && node.type === 'text') {
+      //   //   node.literal = node.literal.toUpperCase();
+      //   // }
+      // }
+
+      // must wrap in a fragment to get things working right
+      origCode = '<>\n' + mdHtmlWriter.render(parsed) + '\n</>\n';
+      if(path.endsWith('.md')) {
+        path2 = path.replace('.md', '');
+      }
+      //console.log(origCode);
+    }
+    if(plower.endsWith('.jsx.md') || plower.endsWith('.jsx')) {
+      // use HTML/XML-ish output of Markdown above, if available, else load JSX from disk
+      origCode = origCode || fs.readFileSync(path, { encoding: 'utf-8' });
+      let transformedCode = transformCode(origCode);
+      // if first non-whitespace characters are not <xyz>, then prepend a small bit of boilerplate code on our behalf
+      let final = prepender(makeComponentNameFromPath(path2), origCode) + transformedCode + '\n';
+      ret.push(final);
+    }
   });
   // TODO change outro based on arguments for writing to disk, or passing to further BrayElem processing function, or whatever...
   ret.push(outro);
@@ -184,6 +218,8 @@ function main(options) {
   //options = commandLineArgs(optionDefinitions);
   // TODO get command line arguments and pass these options
   //options.paths = paths.filter(x => x.toLowerCase().endsWith('.jsx'));
+  
+  // you need this to make code do anything useful
   testMain(options);
 }
 

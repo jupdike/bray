@@ -1,0 +1,4 @@
+<Document>
+    <Simple/>
+    <Test/>
+</Document>
