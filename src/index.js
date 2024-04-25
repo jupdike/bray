@@ -148,12 +148,6 @@ function transformCode(origCode) {
 
 const noteRegex = /(\[\^\]\(([^\ ]+)[ ]?(\"([^"]+)\")\))/g;
 
-// const openComponentTagRegex = /\<([A-Z][a-zA-z0-9]*)[ ]?(([\-a-zA-Z0-9]+)=((\"[^\"]+\")|(\'[^\']+\'))[ ]?)*/g
-// const componentKVPairRegex = /([\-a-zA-Z0-9]+)=((\"[^\"]+\")|(\'[^\']+\'))/g
-// const closeComponentTagRegex = /\<\/([A-Z][a-zA-z0-9]*)[ ]*\>/g
-// const openFakeComponentTagRegex = /\<div[ ]?((data-component-[\-a-zA-Z0-9]+)=((\"[^\"]+\")|(\'[^\']+\'))[ ]?)+>/g
-// const closeFakeComponentTagRegex = /\<\/div data\-component\-close\-tag\-name="([^\"]+)\"\>/g
-
 function testMain(options) {
   let paths = options.src || [];
   // find all paths that end in hyphens.txt and ingest each word on each line as a custom soft-hyphenated word
@@ -195,77 +189,8 @@ function testMain(options) {
 
       // use modified form of commonmark.js which treats <Xyz> as the start of html_block instead
       // of wrapping it with <p> tag, which causes problems with JSX
-
-      // TODO REMOVE THIS JUNK:
-      /*
-      // <Xyz> --> becomes <div data-component-tag-name='Xyz'>
-      // so Markdown parser will preserve this as a div (without wrapping it in a paragraph tag),
-      // but we can later transform it back to ComponentTag for JSX parser
-      // This is an annoying hack, but less work than writing a Markdown parser from scratch
-      // let m;
-      // do {
-      //     m = openComponentTagRegex.exec(mdCode);
-      //     if (m) {
-      //         console.log(m);
-      //     }
-      // } while (m);
-      let workListPairs = [];
-      let matches2 = mdCode.matchAll(openComponentTagRegex);
-      for (const match of matches2) {
-        // console.log('----\nMATCH:');
-        // for(let i = 0; i < match.length; i++) {
-        //   console.log(i, match[i]);
-        // }
-        let attrs = [];
-        let kvPairs = match[0].slice(match[0].indexOf(' ')+1);
-        for (const kvMatch of kvPairs.matchAll(componentKVPairRegex)) {
-          attrs.push(`data-component-attr-${kvMatch[1]}=${kvMatch[2]}`);
-        }
-        // for(let i = 3; i < match.length; i += 2) {
-        //   attrs.push(`data-component-attr-${match[i]}=${match[i+1]}`);
-        // }
-        // console.log('NEW:', `<div data-component-tag-name="${match[1]}" ${attrs.join(' ')}">`)
-        workListPairs.push([match[0], `<div data-component-tag-name="${match[1]}" ${attrs.join(' ')} `]);
-      }
-      for (const pair of workListPairs) {
-        //console.log('PAIR:', pair);
-        //mdCode = mdCode.replace(pair[0], pair[1]);
-      }
-
-      let matches3 = mdCode.matchAll(closeComponentTagRegex);
-      for (const match of matches3) {
-        //console.log('----\nMATCH:', match[0], match[1]);
-        mdCode = mdCode.replace(match[0], `</div data-component-close-tag-name="${match[1]}">`);
-      }
-      */
       let parsed = mdReader.parse(mdCode);
-      
-      // //useful code to inspect or modify the nodes of them HTML tree before it is rendered
-      // let walker = parsed.walker();
-      // let event, node;
-      // while ((event = walker.next())) {
-      //   node = event.node;
-      //   // html_inline
-      //   // html_block
-      //   //console.log(node.type);
-      //   if (event.entering && node.type.startsWith('html_')) {
-      //     //node.literal = node.literal.toUpperCase();
-      //     //console.log('TYPE:', node.type); //, '-->', node);
-      //     console.log('NODE', node.type, node.literal); //, node);
-      //   }
-      // }
-
       let guts = mdHtmlWriter.render(parsed);
-
-      // a broken hack because the render wants to turn HTML literals into &gt; and untenable garbage like that
-      // a hack to get JSX parts working again
-      // let matches4 = guts.matchAll(closeFakeComponentTagRegex);
-      // for (const match of matches4) {
-      //   //console.log('----\nMATCH:', match[0], match[1]);
-      //   guts = guts.replace(match[0], '</div>'); // the real answer: `</${match[1]}>`);
-      // }
-
-      //console.log(guts);
 
       // must wrap in a fragment to get things working right
       origCode = '<>\n' + guts + '\n</>\n';
