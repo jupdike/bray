@@ -156,8 +156,22 @@ const noteRegex = /(\[\^\]\(([^\ ]+)[ ]?(\"([^"]+)\")\))/g;
 
 function testMain(options) {
   let paths = options.src || [];
+  // find all paths that end in hyphens.txt and ingest each word on each line as a custom soft-hyphenated word
+  let hyphenMap = {};
+  paths.forEach(path => {
+    if(path.endsWith('hyphens.txt')) {
+      let txt = fs.readFileSync(path, { encoding: 'utf-8' });
+      let lines = txt.split('\n').filter(x => x.trim() !== '');
+      let hyphenPairs = lines.map(x => ({fro: x.replace(/[*]/g, ''), to: x.replace('*', '&shy;') }));
+      for (const pair of hyphenPairs) {
+        hyphenMap[pair.fro] = pair.to;
+      }
+    }
+  });
+  //
   let ret = [];
   ret.push(prelude);
+  //console.error(hyphenMap);
   paths.forEach(path => {
     let origCode = null;
     let plower = path.toLowerCase();
@@ -173,8 +187,16 @@ function testMain(options) {
         const text = match[4];
         mdCode = mdCode.replace(fullMatch, `<FootNote index="auto" src="${src}">${text}</FootNote>`);
       }
+      // hyphenate custom words
+      for (const [fro, to] of Object.entries(hyphenMap)) {
+        mdCode = mdCode.replace(new RegExp(fro, 'g'), to);
+      }
+
+
       // use modified form of commonmark.js which treats <Xyz> as the start of html_block instead
       // of wrapping it with <p> tag, which causes problems with JSX
+
+      // TODO REMOVE THIS JUNK:
       /*
       // <Xyz> --> becomes <div data-component-tag-name='Xyz'>
       // so Markdown parser will preserve this as a div (without wrapping it in a paragraph tag),
