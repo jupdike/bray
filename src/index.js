@@ -10,7 +10,9 @@ const __dirname = Path.dirname(__filename);
 import commandLineArgs from 'command-line-args';
 import getUsage from 'command-line-usage';
 
-import { Parser, HtmlRenderer } from 'commonmark';
+let comm = await import('./commonmark.cjs');
+const Parser = comm.Parser;
+const HtmlRenderer = comm.HtmlRenderer;
 let mdReader = new Parser({smart: true});
 let mdHtmlWriter = new HtmlRenderer();
 
@@ -146,6 +148,12 @@ function transformCode(origCode) {
 
 const noteRegex = /(\[\^\]\(([^\ ]+)[ ]?(\"([^"]+)\")\))/g;
 
+// const openComponentTagRegex = /\<([A-Z][a-zA-z0-9]*)[ ]?(([\-a-zA-Z0-9]+)=((\"[^\"]+\")|(\'[^\']+\'))[ ]?)*/g
+// const componentKVPairRegex = /([\-a-zA-Z0-9]+)=((\"[^\"]+\")|(\'[^\']+\'))/g
+// const closeComponentTagRegex = /\<\/([A-Z][a-zA-z0-9]*)[ ]*\>/g
+// const openFakeComponentTagRegex = /\<div[ ]?((data-component-[\-a-zA-Z0-9]+)=((\"[^\"]+\")|(\'[^\']+\'))[ ]?)+>/g
+// const closeFakeComponentTagRegex = /\<\/div data\-component\-close\-tag\-name="([^\"]+)\"\>/g
+
 function testMain(options) {
   let paths = options.src || [];
   let ret = [];
@@ -165,31 +173,94 @@ function testMain(options) {
         const text = match[4];
         mdCode = mdCode.replace(fullMatch, `<FootNote index="auto" src="${src}">${text}</FootNote>`);
       }
-      let parsed = mdReader.parse(mdCode);
+      // use modified form of commonmark.js which treats <Xyz> as the start of html_block instead
+      // of wrapping it with <p> tag, which causes problems with JSX
+      /*
+      // <Xyz> --> becomes <div data-component-tag-name='Xyz'>
+      // so Markdown parser will preserve this as a div (without wrapping it in a paragraph tag),
+      // but we can later transform it back to ComponentTag for JSX parser
+      // This is an annoying hack, but less work than writing a Markdown parser from scratch
+      // let m;
+      // do {
+      //     m = openComponentTagRegex.exec(mdCode);
+      //     if (m) {
+      //         console.log(m);
+      //     }
+      // } while (m);
+      let workListPairs = [];
+      let matches2 = mdCode.matchAll(openComponentTagRegex);
+      for (const match of matches2) {
+        // console.log('----\nMATCH:');
+        // for(let i = 0; i < match.length; i++) {
+        //   console.log(i, match[i]);
+        // }
+        let attrs = [];
+        let kvPairs = match[0].slice(match[0].indexOf(' ')+1);
+        for (const kvMatch of kvPairs.matchAll(componentKVPairRegex)) {
+          attrs.push(`data-component-attr-${kvMatch[1]}=${kvMatch[2]}`);
+        }
+        // for(let i = 3; i < match.length; i += 2) {
+        //   attrs.push(`data-component-attr-${match[i]}=${match[i+1]}`);
+        // }
+        // console.log('NEW:', `<div data-component-tag-name="${match[1]}" ${attrs.join(' ')}">`)
+        workListPairs.push([match[0], `<div data-component-tag-name="${match[1]}" ${attrs.join(' ')} `]);
+      }
+      for (const pair of workListPairs) {
+        //console.log('PAIR:', pair);
+        //mdCode = mdCode.replace(pair[0], pair[1]);
+      }
 
-      // useful code to inspect or modify the nodes of them HTML tree before it is rendered
+      let matches3 = mdCode.matchAll(closeComponentTagRegex);
+      for (const match of matches3) {
+        //console.log('----\nMATCH:', match[0], match[1]);
+        mdCode = mdCode.replace(match[0], `</div data-component-close-tag-name="${match[1]}">`);
+      }
+      */
+      let parsed = mdReader.parse(mdCode);
+      
+      // //useful code to inspect or modify the nodes of them HTML tree before it is rendered
       // let walker = parsed.walker();
       // let event, node;
       // while ((event = walker.next())) {
       //   node = event.node;
-      //   console.log('TYPE:', node.type, '-->', node);
-      //   // if (event.entering && node.type === 'text') {
-      //   //   node.literal = node.literal.toUpperCase();
-      //   // }
+      //   // html_inline
+      //   // html_block
+      //   //console.log(node.type);
+      //   if (event.entering && node.type.startsWith('html_')) {
+      //     //node.literal = node.literal.toUpperCase();
+      //     //console.log('TYPE:', node.type); //, '-->', node);
+      //     console.log('NODE', node.type, node.literal); //, node);
+      //   }
       // }
 
+      let guts = mdHtmlWriter.render(parsed);
+
+      // a broken hack because the render wants to turn HTML literals into &gt; and untenable garbage like that
+      // a hack to get JSX parts working again
+      // let matches4 = guts.matchAll(closeFakeComponentTagRegex);
+      // for (const match of matches4) {
+      //   //console.log('----\nMATCH:', match[0], match[1]);
+      //   guts = guts.replace(match[0], '</div>'); // the real answer: `</${match[1]}>`);
+      // }
+
+      //console.log(guts);
+
       // must wrap in a fragment to get things working right
-      origCode = '<>\n' + mdHtmlWriter.render(parsed) + '\n</>\n';
+      origCode = '<>\n' + guts + '\n</>\n';
       if(path.endsWith('.md')) {
         path2 = path.replace('.md', '');
       }
-      //console.log(origCode);
+      // console.log('-----', path);
+      // console.log(origCode);
+      // console.log('-----');
     }
     if(plower.endsWith('.jsx.md') || plower.endsWith('.jsx')) {
       // use HTML/XML-ish output of Markdown above, if available, else load JSX from disk
       origCode = origCode || fs.readFileSync(path, { encoding: 'utf-8' });
       let transformedCode = transformCode(origCode);
-      // if first non-whitespace characters are not <xyz>, then prepend a small bit of boilerplate code on our behalf
+      // if first non-whitespace characters on any line are not <xyz>, then we have normal code;
+      // else prepend a small bit of boilerplate code on our behalf:
+      // const ComponentName = (props) => <your-code>
       let final = prepender(makeComponentNameFromPath(path2), origCode) + transformedCode + '\n';
       ret.push(final);
     }
