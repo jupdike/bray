@@ -156,7 +156,7 @@ function testMain(options) {
     if(path.endsWith('hyphens.txt')) {
       let txt = fs.readFileSync(path, { encoding: 'utf-8' });
       let lines = txt.split('\n').filter(x => x.trim() !== '');
-      let hyphenPairs = lines.map(x => ({fro: x.replace(/[*]/g, ''), to: x.replace('*', '&shy;') }));
+      let hyphenPairs = lines.map(x => ({fro: x.replace(/[*]/g, ''), to: x.replace(/[*]/g, '&shy;') }));
       for (const pair of hyphenPairs) {
         hyphenMap[pair.fro] = pair.to;
       }
