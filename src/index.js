@@ -147,6 +147,8 @@ function transformCode(origCode) {
 }
 
 const noteRegex = /(\[\^\]\(([^\ ]+)[ ]?(\"([^"]+)\")\))/g;
+const preCodeRegex = /<pre>\w*<code>([^\<]+)<\/code>\w*<\/pre>/g;
+const eoLineRegex = /([ ]*)([\S ]+)[\n]/g;
 
 function testMain(options) {
   let paths = options.src || [];
@@ -186,11 +188,45 @@ function testMain(options) {
         mdCode = mdCode.replace(new RegExp(fro, 'g'), to);
       }
 
-
       // use modified form of commonmark.js which treats <Xyz> as the start of html_block instead
       // of wrapping it with <p> tag, which causes problems with JSX
       let parsed = mdReader.parse(mdCode);
       let guts = mdHtmlWriter.render(parsed);
+
+      // preserve newlines in markdown output for <pre> blocks (JSX React.render breaks this whitespace)
+      let matches2 = guts.matchAll(preCodeRegex);
+      for (const match of matches2) {
+        const fullMatch = match[0];
+        const oldInside = match[1];
+        let inside = match[1];
+        
+        // preserve leading whitespace in <pre> blocks by changing space to &nbsp; and change \n to <br/> to survive JSX round-trip
+        //console.error("----\n\n\n* pre/code match:", fullMatch);
+        let linesMatches = inside.matchAll(eoLineRegex);
+        let lines = [...linesMatches]
+        let n = lines.length;
+        let i = 0;
+        for (const m of lines) {
+          const full = m[0];
+          const leading = m[1];
+          const text = m[2];
+          let nuArray = [];
+          for (let i = 0; i < leading.length; i++) {
+            nuArray.push('&nbsp;');
+          }
+          nuArray.push(text);
+          if(i < n - 1) {
+            // only include <br/> between lines, not last line
+            nuArray.push("<br/>\n");
+          }
+          let nu = nuArray.join('');
+          inside = inside.replace(full, nu);
+          i++;
+        }
+
+        let nu2 = fullMatch.replace(oldInside, inside);
+        guts = guts.replace(fullMatch, nu2);
+      }
 
       // must wrap in a fragment to get things working right
       origCode = '<>\n' + guts + '\n</>\n';
