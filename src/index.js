@@ -150,6 +150,9 @@ const noteRegex = /(\[\^\]\(([^\ ]+)[ ]?(\"([^"]+)\")\))/g;
 const preCodeRegex = /<pre>\w*<code>([^\<]+)<\/code>\w*<\/pre>/g;
 const eoLineRegex = /([ ]*)([\S ]+)[\n]/g;
 
+const rightAlignRegex = /--:(.+)\n/g;
+const centerAlignRegex = /:-:(.+)\n/g;
+
 function testMain(options) {
   let paths = options.src || [];
   // find all paths that end in hyphens.txt and ingest each word on each line as a custom soft-hyphenated word
@@ -186,6 +189,20 @@ function testMain(options) {
       // hyphenate custom words
       for (const [fro, to] of Object.entries(hyphenMap)) {
         mdCode = mdCode.replace(new RegExp(fro, 'g'), to);
+      }
+      matches = mdCode.matchAll(rightAlignRegex);
+      for (const match of matches) {
+        const fullMatch = match[0];
+        let text = match[1];
+        text = mdHtmlWriter.render(mdReader.parse(text));
+        mdCode = mdCode.replace(fullMatch, `<RightAlign>${text}</RightAlign>\n`);
+      }
+      matches = mdCode.matchAll(centerAlignRegex);
+      for (const match of matches) {
+        const fullMatch = match[0];
+        let text = match[1];
+        text = mdHtmlWriter.render(mdReader.parse(text));
+        mdCode = mdCode.replace(fullMatch, `<CenterAlign>${text}</CenterAlign>\n`);
       }
 
       // use modified form of commonmark.js which treats <Xyz> as the start of html_block instead
