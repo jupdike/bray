@@ -32,6 +32,14 @@ Another feature is page breaks: empty lines with six hyphens are not interpreted
 
 `[^](https://example.com/ "Text of note")` will turn into `<FootNote index="auto" src="https://example.com/">Text of note</FootNote>`, a component which you must define. You can then collect up your footnotes as desired (and auto-number them (which must be done at render to time for the numbers to come out in the right order), and de-duplicate notes (to use the same index number for the same note, for example), and then make your own `<FootNotes/>` component, so your list of notes can be spit out automatically at the end of your document, exactly where you want your long list of footnotes to live.
 
+### Alignment
+
+Bray Markdown supports two aligment codes: `--:` for right align, and `:-:` for center.
+
+### Table of Contents
+
+Headings (h1 through h6) are collected up ans turned into a nested outline of `<ol>` and `<li>` tags. To control where the table ends up, use the code `[@TOC@]`. To reset rhe table builder, and eliminate some eaely headings from being included (for example, title page, table of contents page itself) use the code `[@PRE-TOC@]`.
+
 ### Improved custom hyphenation
 
 Include one or more files ending in `hyphens.txt` in your input source files to manually add soft hyphens to specific words throughout your document. For example, each line of the text file would be a single word, with asterisks where you want soft hyphens: `Hy*phen*ate`. This is especially helpful for foreign words or proper nouns that are not hyphenated to your liking, downstream. Check [Merriam-Webster](https://www.merriam-webster.com/dictionary/hyphenate) if you are unsure how to hyphenate a given word.
