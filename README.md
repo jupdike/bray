@@ -2,7 +2,7 @@
 
 **Bray** is a programmable static document processing framework that can output XML, XHTML, HTML, SVG, and PDF (via [Auspex](https://github.com/jupdike/auspex)). (Named in honor of one of the authors of the XML spec, Timothy Bray.)
 
-Bray is a simple, Turing-complete, JavaScript-based static document generation framework based on the idea that *your publication is a program*. (Cf. [Pollen](https://docs.racket-lang.org/pollen/).) Your XML is a tree, not strings, and it is code, ES6 code. When all of your code is collected together and executed the result is just a tree which is rendered to an XML string (SVG, HTML, [Auspex](https://github.com/jupdike/auspex)).
+Bray is a simple, Turing-complete, JavaScript-based static document generation framework based on the idea that *your publication is a program*. (Cf. [Pollen](https://docs.racket-lang.org/pollen/).) Your XML is a tree, not strings, and it is code, ES6 code. When all of your code is collected together and executed, the result is just a tree which is rendered to an XML string (SVG, HTML, [Auspex](https://github.com/jupdike/auspex)).
 
 ## JSX
 
@@ -20,29 +20,31 @@ Bray just collects the bits up, and automates the boilerplate parts. Because it 
 
 ## Other features of Bray
 
+### Improved custom hyphenation
+
+Include one or more files ending in `hyphens.txt` in your input source files to manually add soft hyphens to specific words throughout your document. For example, each line of the text file would be a single word, with asterisks where you want soft hyphens: `Hy*phen*ate`. This is especially helpful for foreign words or proper nouns that are not hyphenated to your liking, downstream. Check [Merriam-Webster](https://www.merriam-webster.com/dictionary/hyphenate) if you are unsure how to hyphenate a given English word.
+
 ### Markdown
 
-Bray supports files with the `.jsx.md` extension. [CommonMark.js](https://github.com/commonmark/commonmark.js) parses the Markdown (with smart-quotes == true by default) and converts it to HTML. Any component tags (capitalized) get passed through as-is (e.g. `<MyComponent>Wrapped text</MyComponent>`), so they must be defined in other files, as `my-component.jsx`, etc. or an error will be thrown. Then the HTML + your component tags are treated as any Bray `.jsx` file would be, and processed by Babelscript to make JavaScript that is then executed when you reference your `.jsx.md` components from `main.jsx` or down the line, then the XML tree is rendered, then you get it back out with the components expanded out.
+Bray supports files with the `.jsx.md` extension. [CommonMark.js](https://github.com/commonmark/commonmark.js) parses the Markdown (with smart-quotes == true by default) and converts it to HTML. Any component tags (capitalized) get passed through as-is (e.g. `<MyComponent>Wrapped text</MyComponent>`), so they must be defined in other files, as `my-component.jsx`, etc. or an error will be thrown. Then the HTML + your component tags are treated as any Bray `.jsx` file would be, and processed by Babelscript to make JavaScript that is then executed when you reference your `.jsx.md` components from `main.jsx`, or down the line. When the XML tree is rendered, you get XML with the components expanded out.
 
-### Easy-to-see and easy-to-type Page Breaks
+This allows you to extend Markdown programmatically. But some easier-to-type codes are available (that just convert to JSX components which you must define).
 
-Another feature is page breaks: empty lines with six hyphens are not interpreted as horizontal rule (thematic break) but as `<PageBreak/>` which you must define as a component somewhere yourself.
+#### Easy-to-see and easy-to-type Page Breaks
 
-### Special inline auto-numbering footnotes
+Another feature is page breaks: empty lines with six hyphens (`------`) are not interpreted as horizontal rule (thematic break) but as `<PageBreak/>` which you must define as a component somewhere yourself.
+
+#### Special inline auto-numbering footnotes
 
 `[^](https://example.com/ "Text of note")` will turn into `<FootNote index="auto" src="https://example.com/">Text of note</FootNote>`, a component which you must define. You can then collect up your footnotes as desired (and auto-number them (which must be done at render to time for the numbers to come out in the right order), and de-duplicate notes (to use the same index number for the same note, for example), and then make your own `<FootNotes/>` component, so your list of notes can be spit out automatically at the end of your document, exactly where you want your long list of footnotes to live.
 
-### Alignment
+#### Alignment
 
-Bray Markdown supports two aligment codes: `--:` for right align, and `:-:` for center.
+Bray Markdown supports two aligment codes: `--:` for right align, and `:-:` for center. Entire line minus code gets wrapped in `<RightAlign>` or `<CenterAlign>` tags, which you must define.
 
-### Table of Contents
+#### Table of Contents
 
-Headings (h1 through h6) are collected up ans turned into a nested outline of `<ol>` and `<li>` tags. To control where the table ends up, use the code `[@TOC@]`. To reset rhe table builder, and eliminate some eaely headings from being included (for example, title page, table of contents page itself) use the code `[@PRE-TOC@]`.
-
-### Improved custom hyphenation
-
-Include one or more files ending in `hyphens.txt` in your input source files to manually add soft hyphens to specific words throughout your document. For example, each line of the text file would be a single word, with asterisks where you want soft hyphens: `Hy*phen*ate`. This is especially helpful for foreign words or proper nouns that are not hyphenated to your liking, downstream. Check [Merriam-Webster](https://www.merriam-webster.com/dictionary/hyphenate) if you are unsure how to hyphenate a given word.
+Headings (`h1` through `h6`) are collected up and turned into a nested outline of `<ol>` and `<li>` tags. To control where this outline HTML ends up, use the code `[@TOC@]`, which will be replaced with the outline. To reset the table builder, and eliminate some early headings from being included (for example, title page, table of contents page itself) use the code `[@PRE-TOC@]`. Every heading before the last `[@PRE-TOC@]` code in the final document will be ignored.
 
 ## Win, win, win
 
