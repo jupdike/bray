@@ -325,6 +325,13 @@ export default class BrayElem {
   }
   // Don't call this directly from outside renderToString, please
   // cf. https://stackoverflow.com/questions/22156326/private-properties-in-javascript-es6-classes
+  _isWeirdTagName(tagName) {
+    // https://stackoverflow.com/questions/69913/why-dont-self-closing-script-elements-work/28719226#28719226
+    if (tagName == "script") {
+      return true;
+    }
+    return false;
+  }
   _renderToStringInner(renderState) {
     if (!BrayElem.isString(this.type)) {
       throw 'BrayElem.renderInner -- expected string element type; this should not happen ...';
@@ -339,7 +346,12 @@ export default class BrayElem {
     }
     let attrString = attrBuilder.join('');
     if (this.props.children.length < 1) {
-      BrayElem._smartBuilderPush(renderState, `<${this.type}${attrString}/>`);
+      if (this._isWeirdTagName(this.type)) {
+        // certain tags (like <script>) should not be self-closing or things break even in modern browsers
+        BrayElem._smartBuilderPush(renderState, `<${this.type}${attrString}></${this.type}>`);
+      } else {
+        BrayElem._smartBuilderPush(renderState, `<${this.type}${attrString}/>`);
+      }
     }
     else {
       if (this.type === BrayElem.Fragment) {
