@@ -18,8 +18,13 @@ let mdHtmlWriter = new HtmlRenderer();
 
 const optionDefinitions = [
   // { name: 'help', alias: 'h', type: Boolean, description: "print this usage help and exit" },
-  { name: 'src', alias: 's', type: String, multiple: true, defaultOption: true, typeLabel: 'file.jsx ...',
+  { name: 'src', alias: 's', type: String, defaultOption: true, typeLabel: 'path/to/input/files/src',
     description: "(default if no flag specified) the input .jsx files to process" },
+  { name: 'develop', alias: 'd', type: String, typeLabel: 'path/to/input/files/src',
+    description: "the directory to watch for changes and automatically recompile" },
+  { name: 'output', alias: 'o', type: String, typeLabel: 'path/to/output', defaultValue: 'build',
+    description: "the directory to write output files to; will be created if it does not exist; defaults to 'build'"
+   },
   // { name: 'args', alias: 'a', multiple:true, type: String, typeLabel: '[underline]{k:v} ...',
   //   description: "one or more k:v pairs passed to the template, where @k takes the value v, e.g.  tsvg --args k:v  results in k: 'v'  passed to template" },
   // { name: 'quiet', alias: 'q', type: Boolean,
@@ -69,18 +74,18 @@ const sections = [
 ];
 
 // https://stackoverflow.com/a/47492545
-// const isDirectory = path => fs.statSync(path).isDirectory();
-// const getDirectories = path =>
-//   fs.readdirSync(path).map(name => Path.join(path, name)).filter(isDirectory);
-// const isFile = path => fs.statSync(path).isFile();  
-// const getFiles = path =>
-//   fs.readdirSync(path).map(name => Path.join(path, name)).filter(isFile);
-// const getFilesRecursively = (path) => {
-//   let dirs = getDirectories(path);
-//   let files = dirs.map(dir => getFilesRecursively(dir)) // go through each directory
-//                   .reduce((a,b) => a.concat(b), []);    // map returns a 2d array (array of file arrays) so flatten
-//   return files.concat(getFiles(path));
-// };
+const isDirectory = path => fs.statSync(path).isDirectory();
+const getDirectories = path =>
+  fs.readdirSync(path).map(name => Path.join(path, name)).filter(isDirectory);
+const isFile = path => fs.statSync(path).isFile();  
+const getFiles = path =>
+  fs.readdirSync(path).map(name => Path.join(path, name)).filter(isFile);
+const getFilesRecursively = (path) => {
+  let dirs = getDirectories(path);
+  let files = dirs.map(dir => getFilesRecursively(dir)) // go through each directory
+                  .reduce((a,b) => a.concat(b), []);    // map returns a 2d array (array of file arrays) so flatten
+  return files.concat(getFiles(path));
+};
 
 function prepender(name, contents) {
   const lines = contents.split('\n');
@@ -122,11 +127,15 @@ let prelude = fs.readFileSync(Path.join(__dirname, 'BrayElem.js'), { encoding: '
 prelude = prelude.replace('export default class BrayElem', 'class BrayElem');
 
 // last expression is 'returned' as result of eval()
-const outro = `
+function getOutro(renderComponentName) {
+  renderComponentName = renderComponentName || 'Main';
+  return  `
 const todoArgsFromCommandLine = { /*TODO*/ };
-//console.log(Main(todoArgsFromCommandLine).renderToString());
-Main(todoArgsFromCommandLine).renderToString();
+//console.log(${renderComponentName}(todoArgsFromCommandLine).renderToString());
+${renderComponentName}(todoArgsFromCommandLine).renderToString();
 `;
+}
+let outro = getOutro();
 
 let jsxSettings = `/** @jsx BrayElem.create */
 /** @jsxFrag BrayElem.Fragment */
@@ -153,117 +162,126 @@ const eoLineRegex = /([ ]*)([\S ]+)[\n]/g;
 const rightAlignRegex = /--:(.+)\n/g;
 const centerAlignRegex = /:-:(.+)\n/g;
 
-function testMain(options) {
-  let paths = options.src || [];
-  // find all paths that end in hyphens.txt and ingest each word on each line as a custom soft-hyphenated word
-  let hyphenMap = {};
+var hyphenMapGlobal = {};
+function prepareHyphenMap(paths) {
+  hyphenMapGlobal = {};
   paths.forEach(path => {
     if(path.endsWith('hyphens.txt')) {
       let txt = fs.readFileSync(path, { encoding: 'utf-8' });
       let lines = txt.split('\n').filter(x => x.trim() !== '');
       let hyphenPairs = lines.map(x => ({fro: x.replace(/[*]/g, ''), to: x.replace(/[*]/g, '&shy;') }));
       for (const pair of hyphenPairs) {
-        hyphenMap[pair.fro] = pair.to;
+        hyphenMapGlobal[pair.fro] = pair.to;
       }
     }
   });
+}
+
+function processOnePath(path) {
+  let origCode = null;
+  let plower = path.toLowerCase();
+  let path2 = path;
+  if(plower.endsWith('.jsx.md')) {
+    let mdCode = fs.readFileSync(path, { encoding: 'utf-8' });
+    mdCode = mdCode.replace(/\n------\n/g, '\n<PageBreak/>\n');
+    mdCode = mdCode.replace(/^------\n/g, '<PageBreak/>\n');
+    let matches = mdCode.matchAll(noteRegex);
+    for (const match of matches) {
+      const fullMatch = match[0];
+      const src = match[2];
+      const text = match[4];
+      mdCode = mdCode.replace(fullMatch, `<FootNote index="auto" src="${src}">${text}</FootNote>`);
+    }
+    // hyphenate custom words
+    for (const [fro, to] of Object.entries(hyphenMapGlobal)) {
+      mdCode = mdCode.replace(new RegExp(fro, 'g'), to);
+    }
+    matches = mdCode.matchAll(rightAlignRegex);
+    for (const match of matches) {
+      const fullMatch = match[0];
+      let text = match[1];
+      text = mdHtmlWriter.render(mdReader.parse(text));
+      mdCode = mdCode.replace(fullMatch, `<RightAlign>${text}</RightAlign>\n`);
+    }
+    matches = mdCode.matchAll(centerAlignRegex);
+    for (const match of matches) {
+      const fullMatch = match[0];
+      let text = match[1];
+      text = mdHtmlWriter.render(mdReader.parse(text));
+      mdCode = mdCode.replace(fullMatch, `<CenterAlign>${text}</CenterAlign>\n`);
+    }
+
+    // use modified form of commonmark.js which treats <Xyz> as the start of html_block instead
+    // of wrapping it with <p> tag, which causes problems with JSX
+    let parsed = mdReader.parse(mdCode);
+    let guts = mdHtmlWriter.render(parsed);
+
+    // preserve newlines in markdown output for <pre> blocks (JSX React.render breaks this whitespace)
+    let matches2 = guts.matchAll(preCodeRegex);
+    for (const match of matches2) {
+      const fullMatch = match[0];
+      const oldInside = match[1];
+      let inside = match[1];
+      
+      // preserve leading whitespace in <pre> blocks by changing space to &nbsp; and change \n to <br/> to survive JSX round-trip
+      //console.error("----\n\n\n* pre/code match:", fullMatch);
+      let linesMatches = inside.matchAll(eoLineRegex);
+      let lines = [...linesMatches]
+      let n = lines.length;
+      let i = 0;
+      for (const m of lines) {
+        const full = m[0];
+        const leading = m[1];
+        const text = m[2];
+        let nuArray = [];
+        for (let i = 0; i < leading.length; i++) {
+          nuArray.push('&nbsp;');
+        }
+        nuArray.push(text);
+        if(i < n - 1) {
+          // only include <br/> between lines, not last line
+          nuArray.push("<br/>\n");
+        }
+        let nu = nuArray.join('');
+        inside = inside.replace(full, nu);
+        i++;
+      }
+
+      let nu2 = fullMatch.replace(oldInside, inside);
+      guts = guts.replace(fullMatch, nu2);
+    }
+
+    // must wrap in a fragment to get things working right
+    origCode = '<>\n' + guts + '\n</>\n';
+    if(path.endsWith('.md')) {
+      path2 = path.replace('.md', '');
+    }
+    // console.log('-----', path);
+    // console.log(origCode);
+    // console.log('-----');
+  }
+  if(plower.endsWith('.jsx.md') || plower.endsWith('.jsx')) {
+    // use HTML/XML-ish output of Markdown above, if available, else load JSX from disk
+    origCode = origCode || fs.readFileSync(path, { encoding: 'utf-8' });
+    let transformedCode = transformCode(origCode);
+    // if first non-whitespace characters on any line are not <xyz>, then we have normal code;
+    // else prepend a small bit of boilerplate code on our behalf:
+    // const ComponentName = (props) => <your-code>
+    let final = prepender(makeComponentNameFromPath(path2), origCode) + transformedCode + '\n';
+    return final;
+  }
+}
+
+function testMain(options) {
+  let paths = options.src || [];
+  // find all paths that end in hyphens.txt and ingest each word on each line as a custom soft-hyphenated word
+  prepareHyphenMap(paths);
   //
   let ret = [];
   ret.push(prelude);
-  //console.error(hyphenMap);
   paths.forEach(path => {
-    let origCode = null;
-    let plower = path.toLowerCase();
-    let path2 = path;
-    if(plower.endsWith('.jsx.md')) {
-      let mdCode = fs.readFileSync(path, { encoding: 'utf-8' });
-      mdCode = mdCode.replace(/\n------\n/g, '\n<PageBreak/>\n');
-      mdCode = mdCode.replace(/^------\n/g, '<PageBreak/>\n');
-      let matches = mdCode.matchAll(noteRegex);
-      for (const match of matches) {
-        const fullMatch = match[0];
-        const src = match[2];
-        const text = match[4];
-        mdCode = mdCode.replace(fullMatch, `<FootNote index="auto" src="${src}">${text}</FootNote>`);
-      }
-      // hyphenate custom words
-      for (const [fro, to] of Object.entries(hyphenMap)) {
-        mdCode = mdCode.replace(new RegExp(fro, 'g'), to);
-      }
-      matches = mdCode.matchAll(rightAlignRegex);
-      for (const match of matches) {
-        const fullMatch = match[0];
-        let text = match[1];
-        text = mdHtmlWriter.render(mdReader.parse(text));
-        mdCode = mdCode.replace(fullMatch, `<RightAlign>${text}</RightAlign>\n`);
-      }
-      matches = mdCode.matchAll(centerAlignRegex);
-      for (const match of matches) {
-        const fullMatch = match[0];
-        let text = match[1];
-        text = mdHtmlWriter.render(mdReader.parse(text));
-        mdCode = mdCode.replace(fullMatch, `<CenterAlign>${text}</CenterAlign>\n`);
-      }
-
-      // use modified form of commonmark.js which treats <Xyz> as the start of html_block instead
-      // of wrapping it with <p> tag, which causes problems with JSX
-      let parsed = mdReader.parse(mdCode);
-      let guts = mdHtmlWriter.render(parsed);
-
-      // preserve newlines in markdown output for <pre> blocks (JSX React.render breaks this whitespace)
-      let matches2 = guts.matchAll(preCodeRegex);
-      for (const match of matches2) {
-        const fullMatch = match[0];
-        const oldInside = match[1];
-        let inside = match[1];
-        
-        // preserve leading whitespace in <pre> blocks by changing space to &nbsp; and change \n to <br/> to survive JSX round-trip
-        //console.error("----\n\n\n* pre/code match:", fullMatch);
-        let linesMatches = inside.matchAll(eoLineRegex);
-        let lines = [...linesMatches]
-        let n = lines.length;
-        let i = 0;
-        for (const m of lines) {
-          const full = m[0];
-          const leading = m[1];
-          const text = m[2];
-          let nuArray = [];
-          for (let i = 0; i < leading.length; i++) {
-            nuArray.push('&nbsp;');
-          }
-          nuArray.push(text);
-          if(i < n - 1) {
-            // only include <br/> between lines, not last line
-            nuArray.push("<br/>\n");
-          }
-          let nu = nuArray.join('');
-          inside = inside.replace(full, nu);
-          i++;
-        }
-
-        let nu2 = fullMatch.replace(oldInside, inside);
-        guts = guts.replace(fullMatch, nu2);
-      }
-
-      // must wrap in a fragment to get things working right
-      origCode = '<>\n' + guts + '\n</>\n';
-      if(path.endsWith('.md')) {
-        path2 = path.replace('.md', '');
-      }
-      // console.log('-----', path);
-      // console.log(origCode);
-      // console.log('-----');
-    }
-    if(plower.endsWith('.jsx.md') || plower.endsWith('.jsx')) {
-      // use HTML/XML-ish output of Markdown above, if available, else load JSX from disk
-      origCode = origCode || fs.readFileSync(path, { encoding: 'utf-8' });
-      let transformedCode = transformCode(origCode);
-      // if first non-whitespace characters on any line are not <xyz>, then we have normal code;
-      // else prepend a small bit of boilerplate code on our behalf:
-      // const ComponentName = (props) => <your-code>
-      let final = prepender(makeComponentNameFromPath(path2), origCode) + transformedCode + '\n';
-      ret.push(final);
-    }
+    const final = processOnePath(path);
+    ret.push(final);
   });
   // TODO change outro based on arguments for writing to disk, or passing to further BrayElem processing function, or whatever...
   ret.push(outro);
@@ -271,6 +289,92 @@ function testMain(options) {
   //console.warn(code);
   let str = eval(code);
   console.log(str);
+}
+
+function realMain(options) {
+  let paths = [];
+  let inputRoot = "src";
+  if (options.develop) {
+    inputRoot = options.develop;
+  } else if (options.src) {
+    inputRoot = Path.dirname(options.src[0]);
+  }
+  getFilesRecursively(inputRoot).filter(isValidFilename).forEach(f => {
+    paths.push(f);
+  });
+  let componentsPaths = paths.filter(x => x.indexOf('components/') >= 0);
+  let renderPaths = paths.filter(x => x.indexOf('render/') >= 0);
+  let staticPaths = paths.filter(x => x.indexOf('static/') >= 0);
+  console.log('com:', componentsPaths);
+  console.log('ren:', renderPaths);
+  console.log('sta:', staticPaths);
+  // hidden inputs are all in components/ including hyphens.txt
+  prepareHyphenMap(componentsPaths);
+  let amalgamatedComponentsCode = [];
+  amalgamatedComponentsCode.push(prelude);
+  componentsPaths.forEach(path => {
+    const final = processOnePath(path);
+    amalgamatedComponentsCode.push(final);
+  });
+  //let componentsCode = amalgamatedComponentsCode.join('\n');
+  //console.log('--- COMPONENTS CODE ---\n', componentsCode);
+  renderPaths.forEach(path => {
+    let ret = [];
+    ret.push(amalgamatedComponentsCode.join('\n'));
+    const final = processOnePath(path);
+    ret.push(final);
+    ret.push(getOutro(makeComponentNameFromPath(path)));
+    let code = ret.join('\n');
+    //console.warn(code);
+    let str = eval(code);
+    //
+    // TODO do something for development mode server
+    //
+    // write to output folder
+    let outpath = null;
+    if (options.output) {
+      outpath = options.output;
+      if (!fs.existsSync(outpath)) {
+        fs.mkdirSync(outpath, { recursive: true });
+      }
+      let fname = Path.basename(path);
+      if (fname.endsWith('.md.jsx')) {
+        fname = fname.replace('.md.jsx', '.html');
+      } else if (fname.endsWith('.jsx')) {
+        fname = fname.replace('.jsx', '.html');
+      } else {
+        fname = fname + '.out';
+      }
+      outpath = Path.join(outpath, fname);
+      fs.writeFileSync(outpath, str, { encoding: 'utf-8' });
+      console.error('Wrote', outpath);
+    }
+  });
+}
+
+function isValidFilename(f) {
+  return f.endsWith('.jsx') || f.endsWith('.jsx.md') || f.endsWith('hyphens.txt') || f.endsWith('.txt') ||
+        f.endsWith('.css') || f.endsWith('.html') || f.endsWith('.js') || f.endsWith('.otf') ||
+        f.endsWith('.ttf') || f.endsWith('.woff') || f.endsWith('.woff2');
+}
+
+function testMain2(options) {
+  if (options.develop) {
+    console.error('Watching folder', options.develop, 'for changes...');
+    fs.watch(options.develop, { recursive: true }, (eventType, filename) => {
+      const f = filename.toLowerCase();
+      // if (f.endsWith('.jsx') || f.endsWith('.jsx.md')) {
+      //   onChange(eventType, filename, options);
+      // }
+      if (filename && f && isValidFilename(f)) {
+        console.error(`File ${filename} changed (${eventType}), recompiling...`);
+        // TODO, something with options
+      }
+    });
+    realMain(options);
+  } else if (options.src) {
+    realMain(options);
+  }
 }
 
 function main(options) {
@@ -300,7 +404,7 @@ function main(options) {
   //options.paths = paths.filter(x => x.toLowerCase().endsWith('.jsx'));
   
   // you need this to make code do anything useful
-  testMain(options);
+  testMain2(options);
 }
 
 // allow all .jsx files to passed by CLI using globbing (*.jsx)
