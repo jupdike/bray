@@ -109,6 +109,9 @@ function prepender(name, contents) {
 }
 
 function makeComponentNameFromPath(path) {
+  if (path.endsWith('.md')) {
+    path = path.replace('.md', '');
+  }
   const orig = Path.basename(path, '.jsx');
   // if any upper case, use that
   if (orig !== orig.toLowerCase()) {
@@ -177,12 +180,58 @@ function prepareHyphenMap(paths) {
   });
 }
 
-function processOnePath(path) {
+function myYamlToJson(yaml) {
+  let obj = {};
+  let lines = yaml.split('\n');
+  for (let line of lines) {
+    line = line.trim();
+    if(line === '') {
+      continue;
+    }
+    let colon = line.indexOf(':');
+    if(colon === -1) {
+      continue;
+    }
+    let key = line.slice(0, colon).trim();
+    let value = line.slice(colon + 1).trim();
+    if(value.startsWith('"') && value.endsWith('"')) {
+      value = value.slice(1, -1);
+    } else if(value.startsWith("'") && value.endsWith("'")) {
+      value = value.slice(1, -1);
+    } else if(value === 'true') {
+      value = true;
+    } else if(value === 'false') {
+      value = false;
+    } else if(!isNaN(Number(value))) {
+      value = Number(value);
+    }
+    obj[key] = value;
+  }
+  return obj;
+}
+
+function maybeYaml(text) {
+  if(text.startsWith('---\n')) {
+    let end = text.indexOf('\n---\n', 4);
+    if(end !== -1) {
+      let yaml = text.slice(4, end);
+      text = text.slice(end + 5);
+      return [myYamlToJson(yaml), text];
+    }
+  }
+  return [null, text];
+}
+
+function processOnePath(path, isRender) {
   let origCode = null;
   let plower = path.toLowerCase();
   let path2 = path;
   if(plower.endsWith('.jsx.md')) {
-    let mdCode = fs.readFileSync(path, { encoding: 'utf-8' });
+    let unProcessed = fs.readFileSync(path, { encoding: 'utf-8' });
+    let pair = maybeYaml(unProcessed);
+    let yobj = pair[0] || { layout: 'default', title: makeComponentNameFromPath(path) };
+    let mdCode = pair[1];
+    console.warn('YAML:', yobj);
     mdCode = mdCode.replace(/\n------\n/g, '\n<PageBreak/>\n');
     mdCode = mdCode.replace(/^------\n/g, '<PageBreak/>\n');
     let matches = mdCode.matchAll(noteRegex);
@@ -259,6 +308,27 @@ function processOnePath(path) {
     // console.log('-----', path);
     // console.log(origCode);
     // console.log('-----');
+
+    if (isRender) {
+      let layout = makeComponentNameFromPath(yobj.layout || 'default');
+      //console.warn('For path', path, 'using layout', layout);
+      delete yobj.layout;
+      // TODO pass other yobj fields as props to layout component
+      //let props = JSON.stringify(yobj).slice(1, -1);
+      let ret = [];
+      for (const [k, v] of Object.entries(yobj)) {
+        if (typeof v === 'string') {
+          ret.push(`${k}={"${v}"}`);
+        } else if (typeof v === 'number' || typeof v === 'boolean') {
+          ret.push(`${k}={${v}}`);
+        } else {
+          // TODO arrays and objects
+        }
+      }
+      let props = ret.join(' ');
+      origCode = `<${layout} ${props}>\n${origCode}\n</${layout}>\n`;
+      //console.warn('For path', path, 'using origCode:\n', origCode);
+    }
   }
   if(plower.endsWith('.jsx.md') || plower.endsWith('.jsx')) {
     // use HTML/XML-ish output of Markdown above, if available, else load JSX from disk
@@ -321,7 +391,7 @@ function realMain(options) {
   renderPaths.forEach(path => {
     let ret = [];
     ret.push(amalgamatedComponentsCode.join('\n'));
-    const final = processOnePath(path);
+    const final = processOnePath(path, true);
     ret.push(final);
     ret.push(getOutro(makeComponentNameFromPath(path)));
     let code = ret.join('\n');
@@ -338,8 +408,8 @@ function realMain(options) {
         fs.mkdirSync(outpath, { recursive: true });
       }
       let fname = Path.basename(path);
-      if (fname.endsWith('.md.jsx')) {
-        fname = fname.replace('.md.jsx', '.html');
+      if (fname.endsWith('.jsx.md')) {
+        fname = fname.replace('.jsx.md', '.html');
       } else if (fname.endsWith('.jsx')) {
         fname = fname.replace('.jsx', '.html');
       } else {
@@ -355,7 +425,9 @@ function realMain(options) {
 function isValidFilename(f) {
   return f.endsWith('.jsx') || f.endsWith('.jsx.md') || f.endsWith('hyphens.txt') || f.endsWith('.txt') ||
         f.endsWith('.css') || f.endsWith('.html') || f.endsWith('.js') || f.endsWith('.otf') ||
-        f.endsWith('.ttf') || f.endsWith('.woff') || f.endsWith('.woff2');
+        f.endsWith('.ttf') || f.endsWith('.woff') || f.endsWith('.woff2') || f.endsWith('.eot') ||
+        f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.gif') ||
+        f.endsWith('.svg') || f.endsWith('.xml');
 }
 
 function testMain2(options) {
