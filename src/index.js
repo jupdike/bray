@@ -309,7 +309,7 @@ function processOnePath(path, isRender) {
     // console.log(origCode);
     // console.log('-----');
 
-    if (isRender) {
+    if (isRender && yobj.layout !== false) {
       let layout = makeComponentNameFromPath(yobj.layout || 'default');
       //console.warn('For path', path, 'using layout', layout);
       delete yobj.layout;
