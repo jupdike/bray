@@ -30,6 +30,8 @@ Bray supports files with the `.jsx.md` extension. [CommonMark.js](https://github
 
 This allows you to extend Markdown programmatically. But some easier-to-type codes are available (that just convert to JSX components which you must define).
 
+At the top of a `.jsx.md` file, an optional bit of near-YAML can be included, fenced above and below by `---`. The lines in between the fence are removed before Markdown processing takes place, and each line is treated as a `key: value` pair, where the leftmost colon is the delimiter, and whitespace is stripped on the `key` and `value`, and where `key` is a string for the left-hand side (ends up as a JSON object field name) and `value` is parsed as JavaScript, namely strings need to be quoted, so `false` and `true` and numbers can be parsed into JavaScript values instead of staying as strings. The special `key` with the string `layout` tells the filename of the component to wrap the body of the converted-to-html Markdown (rest of file), and the rest of the `key`-`value` pairs are passed as properties to that component.
+
 #### Easy-to-see and easy-to-type Page Breaks
 
 Another feature is page breaks: empty lines with six hyphens (`------`) are not interpreted as horizontal rule (thematic break) but as `<PageBreak/>` which you must define as a component somewhere yourself.
