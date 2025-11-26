@@ -2,11 +2,13 @@
 
 **Bray** is a programmable static document processing framework that can output XML, XHTML, HTML, SVG. See README.md for how Markdown (`.jsx.md`) files are handled.
 
-The Bray command-line runs in src/ project folder structured as follows:
+The Bray command-line runs in a `src/` project folder structured as follows:
 
 * `src/components/`: `.jsx` or `.jsx.md` files that can be invoked elsewhere (see render below). The code from these files is not written out anywhere unless invoked. They can be invoked zero or more times.
 * `src/render/`: `.jsx` or `.jsx.md` files whose code is executed to produce an HTML string, which is written to disk. In developer mode, the file is not written to disk, but the string is computed and the data is sent to the connected client instead of written.
 * `src/static/`: static file assets (.png, .css, .svg, .js, etc.) served up as-is by the web server, or copied directly to the output folder; the folder structure is maintained.
+
+A parallel `build/` folder, at the level of `src/`, will be created, for static output.
 
 The core of Bray is implemented by BrayElem and index.js. When invoked on the command-line (or run in developer mode), Bray reads text files with `.jsx` or `.jsx.md` extension and converts everything to valid JSX code (adding `const ComponentNameBasedOnHyphenatedFileName = (props) => <xyz>contents of file here</xyz>` when the file does not begin with a less-than symbol) or converting Markdown to JSX first if necessary, etc.
 
