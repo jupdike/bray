@@ -2,6 +2,7 @@ import { transformSync } from "@babel/core";
 import path from 'path';
 const Path = path;
 import fs from 'fs';
+import { createServer } from './server.js';
 
 import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url).replace('file://', '');
@@ -24,6 +25,9 @@ const optionDefinitions = [
     description: "the directory to watch for changes and automatically recompile" },
   { name: 'output', alias: 'o', type: String, typeLabel: 'path/to/output', defaultValue: 'build',
     description: "the directory to write output files to; will be created if it does not exist; defaults to 'build'"
+   },
+  { name: 'port', alias: 'p', type: Number, defaultValue: 8000,
+    description: "port for development server (used with --develop); defaults to 8000"
    },
   // { name: 'args', alias: 'a', multiple:true, type: String, typeLabel: '[underline]{k:v} ...',
   //   description: "one or more k:v pairs passed to the template, where @k takes the value v, e.g.  tsvg --args k:v  results in k: 'v'  passed to template" },
@@ -342,6 +346,30 @@ function processOnePath(path, isRender) {
   }
 }
 
+// Build components code from component paths (returns prelude + all component code)
+function buildComponentsCode(componentsPaths) {
+  prepareHyphenMap(componentsPaths);
+  let amalgamatedComponentsCode = [];
+  amalgamatedComponentsCode.push(prelude);
+  componentsPaths.forEach(path => {
+    const final = processOnePath(path);
+    amalgamatedComponentsCode.push(final);
+  });
+  return amalgamatedComponentsCode.join('\n');
+}
+
+// Render a single page given its render path and components code
+function renderPageWithComponents(renderPath, componentsCode) {
+  let ret = [];
+  ret.push(componentsCode);
+  const final = processOnePath(renderPath, true);
+  ret.push(final);
+  ret.push(getOutro(makeComponentNameFromPath(renderPath)));
+  let code = ret.join('\n');
+  let str = eval(code);
+  return str;
+}
+
 function testMain(options) {
   let paths = options.src || [];
   // find all paths that end in hyphens.txt and ingest each word on each line as a custom soft-hyphenated word
@@ -378,28 +406,12 @@ function realMain(options) {
   console.log('com:', componentsPaths);
   console.log('ren:', renderPaths);
   console.log('sta:', staticPaths);
-  // hidden inputs are all in components/ including hyphens.txt
-  prepareHyphenMap(componentsPaths);
-  let amalgamatedComponentsCode = [];
-  amalgamatedComponentsCode.push(prelude);
-  componentsPaths.forEach(path => {
-    const final = processOnePath(path);
-    amalgamatedComponentsCode.push(final);
-  });
-  //let componentsCode = amalgamatedComponentsCode.join('\n');
+  // Build components code using new helper function
+  const componentsCode = buildComponentsCode(componentsPaths);
   //console.log('--- COMPONENTS CODE ---\n', componentsCode);
   renderPaths.forEach(path => {
-    let ret = [];
-    ret.push(amalgamatedComponentsCode.join('\n'));
-    const final = processOnePath(path, true);
-    ret.push(final);
-    ret.push(getOutro(makeComponentNameFromPath(path)));
-    let code = ret.join('\n');
-    //console.warn(code);
-    let str = eval(code);
-    //
-    // TODO do something for development mode server
-    //
+    // Render page using new helper function
+    let str = renderPageWithComponents(path, componentsCode);
     // write to output folder
     let outpath = null;
     if (options.output) {
@@ -432,19 +444,65 @@ function isValidFilename(f) {
 
 function testMain2(options) {
   if (options.develop) {
-    console.error('Watching folder', options.develop, 'for changes...');
-    fs.watch(options.develop, { recursive: true }, (eventType, filename) => {
-      const f = filename.toLowerCase();
-      // if (f.endsWith('.jsx') || f.endsWith('.jsx.md')) {
-      //   onChange(eventType, filename, options);
-      // }
+    // Development server mode
+    let inputRoot = options.develop;
+
+    // Get all files and categorize them
+    let paths = [];
+    getFilesRecursively(inputRoot).filter(isValidFilename).forEach(f => {
+      paths.push(f);
+    });
+    let componentsPaths = paths.filter(x => x.indexOf('components/') >= 0);
+    let renderPaths = paths.filter(x => x.indexOf('render/') >= 0);
+    let staticPaths = paths.filter(x => x.indexOf('static/') >= 0);
+
+    // Build initial components code
+    let componentsCode = buildComponentsCode(componentsPaths);
+
+    // Create render function for the server
+    const renderPage = (renderPath) => {
+      try {
+        return renderPageWithComponents(renderPath, componentsCode);
+      } catch (error) {
+        throw error;
+      }
+    };
+
+    // Start the Express server
+    const { server, broadcastReload } = createServer({
+      port: options.port || 8000,
+      inputRoot: inputRoot,
+      renderPage: renderPage,
+      staticRoot: Path.join(inputRoot, 'static')
+    });
+
+    console.error(`Watching ${inputRoot} for changes...`);
+
+    // Setup file watcher
+    fs.watch(inputRoot, { recursive: true }, (eventType, filename) => {
+      const f = filename ? filename.toLowerCase() : '';
       if (filename && f && isValidFilename(f)) {
-        console.error(`File ${filename} changed (${eventType}), recompiling...`);
-        // TODO, something with options
+        console.error(`File ${filename} changed (${eventType})`);
+
+        // Check if it's a component file - rebuild components code
+        const fullPath = Path.join(inputRoot, filename);
+        if (fullPath.indexOf('components/') >= 0) {
+          // Rebuild component paths
+          let newPaths = [];
+          getFilesRecursively(inputRoot).filter(isValidFilename).forEach(f => {
+            newPaths.push(f);
+          });
+          let newComponentsPaths = newPaths.filter(x => x.indexOf('components/') >= 0);
+          componentsCode = buildComponentsCode(newComponentsPaths);
+          console.error('Components code rebuilt');
+        }
+
+        // Trigger live reload for all file changes
+        broadcastReload();
       }
     });
-    realMain(options);
   } else if (options.src) {
+    // Static build mode
     realMain(options);
   }
 }

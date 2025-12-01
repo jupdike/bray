@@ -48,6 +48,48 @@ Bray Markdown supports two aligment codes: `--:` for right align, and `:-:` for 
 
 Headings (`h1` through `h6`) are collected up and turned into a nested outline of `<ol>` and `<li>` tags. To control where this outline HTML ends up, use the code `[@TOC@]`, which will be replaced with the outline. To reset the table builder, and eliminate some early headings from being included (for example, title page, table of contents page itself) use the code `[@PRE-TOC@]`. Every heading before the last `[@PRE-TOC@]` code in the final document will be ignored.
 
+## Helpful Development Server
+
+```
+# Start development server (default port 8000)
+bray --develop src
+
+# Or with custom port
+bray -d src -p 3000
+```
+
+#### Project Structure:
+
+```
+your-project/
+    src/
+        components/     # Reusable components
+            hello.jsx
+        render/         # Pages to render
+            index.jsx
+            about.jsx
+        static/         # Static assets
+            css/
+                style.css
+            images/
+                logo.png
+    build/              # Static build mode can generate this
+        index.html
+        aboutl.html
+        css/
+            style.css
+        images/
+            logo.png
+```
+
+URL Routing:
+
+- http://localhost:8000/ → src/render/index.jsx
+- http://localhost:8000/about.html → src/render/about.jsx
+- http://localhost:8000/css/style.css → src/static/css/style.css
+
+The server watches for changes and automatically reloads the browser when any `.jsx`, `.jsx.md`, or static files are modified!
+
 ## Win, win, win
 
-This combination of small extensions, plus Bray's Turing-complete approach, plus Markdown's intuitiveness (and lack of indentation) makes for a really robust, powerful, and easy-to-use document generation system, which can scale up to an entire book. And the main part of your document is mostly just written in a semantic, domain-specific authoring language which you define and extend.
+This combination of small extensions and usability, plus Bray's Turing-complete approach, plus Markdown's intuitiveness (and lack of indentation) makes for a really robust, powerful, and easy-to-use document generation system, which can scale up to an entire book, or large and complicated website. And the main part of your document is mostly just written in a semantic, domain-specific authoring language which you define and extend.
