@@ -403,12 +403,12 @@ function realMain(options) {
   let componentsPaths = paths.filter(x => x.indexOf('components/') >= 0);
   let renderPaths = paths.filter(x => x.indexOf('render/') >= 0);
   let staticPaths = paths.filter(x => x.indexOf('static/') >= 0);
-  console.log('com:', componentsPaths);
-  console.log('ren:', renderPaths);
-  console.log('sta:', staticPaths);
+  console.error('com:', componentsPaths);
+  console.error('ren:', renderPaths);
+  console.error('sta:', staticPaths);
   // Build components code using new helper function
   const componentsCode = buildComponentsCode(componentsPaths);
-  //console.log('--- COMPONENTS CODE ---\n', componentsCode);
+  //console.error('--- COMPONENTS CODE ---\n', componentsCode);
   renderPaths.forEach(path => {
     // Render page using new helper function
     let str = renderPageWithComponents(path, componentsCode);
@@ -534,7 +534,17 @@ function main(options) {
   //options.paths = paths.filter(x => x.toLowerCase().endsWith('.jsx'));
   
   // you need this to make code do anything useful
-  testMain2(options);
+  if (!options.develop && !options.src) {
+    console.error('Error: expected --develop or --src option.');
+    process.exit(1);
+  }
+  if(options.src && !options.develop) {
+    console.error('Running in static build mode...');
+    testMain(options);
+  } else if (options.develop) {
+    console.error('Running in development server mode...');
+    testMain2(options);
+  }
 }
 
 // allow all .jsx files to passed by CLI using globbing (*.jsx)
