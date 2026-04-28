@@ -19,7 +19,7 @@ let mdHtmlWriter = new HtmlRenderer();
 
 const optionDefinitions = [
   // { name: 'help', alias: 'h', type: Boolean, description: "print this usage help and exit" },
-  { name: 'src', alias: 's', type: String, defaultOption: true, typeLabel: 'path/to/input/files/src',
+  { name: 'src', alias: 's', type: String, multiple: true, defaultOption: true, typeLabel: 'path/to/input/files/src',
     description: "(default if no flag specified) the input .jsx files to process" },
   { name: 'develop', alias: 'd', type: String, typeLabel: 'path/to/input/files/src',
     description: "the directory to watch for changes and automatically recompile" },
